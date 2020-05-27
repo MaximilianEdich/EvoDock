@@ -1,0 +1,8 @@
+mutate+ 10
+select 0.1
+loop 5
+crossover 10
+select 0.1 0.5
+
+mutate+ 10
+select 10

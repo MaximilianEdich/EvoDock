@@ -1,0 +1,9 @@
+startpopulation 100
+targetscore 100
+initial>R,A,Y,V,A,A
+>
+>
+>
+>
+>
+>

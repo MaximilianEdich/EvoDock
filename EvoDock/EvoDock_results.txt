@@ -1,0 +1,14 @@
+Population Size: 7
+Best score: 89.0 | with difference to target score: 11.0
+Number of mutants sharing best score: 1
+Number of accepted mutations: 1060
+Number of accepted crossing overs: 1524
+Best Score over Time: [75.33333333333333, 86.5, 87.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0]
+Average Score over Time: [75.33333333333333, 77.20333333333333, 82.79444444444442, 84.80107526881719, 86.25, 87.37037037037038, 87.47777777777779, 88.22222222222223, 88.14285714285714]
+['Y', 'Y', 'Y', 'Y', 'Y', 'Y'], 89.0
+['W', 'Y', 'Y', 'Y', 'Y', 'Y'], 88.66666666666667
+['Y', 'Y', 'Y', 'Y', 'W', 'Y'], 88.66666666666667
+['Y', 'Y', 'V', 'Y', 'Y', 'Y'], 88.5
+['Y', 'Y', 'V', 'W', 'W', 'Y'], 87.83333333333333
+['Y', 'U', 'Y', 'W', 'Y', 'W'], 87.66666666666667
+['Y', 'U', 'Y', 'W', 'Y', 'Q'], 86.66666666666667
