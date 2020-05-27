@@ -16,7 +16,7 @@ Asparagin	    Asn	N
 Asparaginsaeure	Asp	D
 Cystein     	Cys	C
 Glutamin	    Gln	Q
-Glutaminsäure	Glu	E
+Glutaminsaeure	Glu	E
 Glycin	        Gly	G
 Histidin	    His	H
 Isoleucin	    Ile	I
@@ -124,6 +124,7 @@ for line in initialContent:
     else:
         exit("Error, undefined keywords in line " + str(lineIndex) + " of the initial settings file.")
 
+
 # catch undefined values
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
@@ -134,6 +135,10 @@ if startPopulationSize == 0:
     exit("Error in initial settings file: You have to specify the \"startpopulation n\" with n > 0!")
 if not definedTargetScore:
     exit("Error in initial settings file: You have to specify the \"targetscore n\"!")
+
+
+# TODO load optional history as look up table for score to avoid long re-calculations
+lookUpScores = []
 
 
 # ## Score Function
