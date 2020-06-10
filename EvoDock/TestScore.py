@@ -1,6 +1,6 @@
 
 
-def GetScore(targetIndividual):
+def get_score(targetIndividual):
     """
 
     :return:
@@ -13,7 +13,7 @@ def GetScore(targetIndividual):
     return score
 
 
-def GetScore2(targetIndividual):
+def get_score_2(targetIndividual):
     """
 
     :return:

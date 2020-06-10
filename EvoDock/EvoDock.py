@@ -142,7 +142,7 @@ lookUpScores = []
 
 
 # ## Score Function
-def GetAndWriteScore(targetIndividual):
+def get_and_write_score(targetIndividual):
     """
     Calculates the score of an individual and writes it into its score value.
     :param targetIndividual: An individual in the form of [g, s], where s is the score
@@ -151,14 +151,14 @@ def GetAndWriteScore(targetIndividual):
     :return: the calculated score as the individuals fitness, that was written into the score value of the individual.
     """
     # calculate the score (by using external software)
-    score = TestScore.GetScore(targetIndividual)
+    score = TestScore.get_score(targetIndividual)
     # write the score into the individual and return score
     targetIndividual[1] = score
     return score
 
 
 # ## Create Population - Functions
-def GetRandomGenes():
+def get_random_genes():
     """
     Get a random combination of possible genes (in terms of genetic algorithms).
     :return: A list, containing random amino acids chosen by the specified pattern.
@@ -172,7 +172,7 @@ def GetRandomGenes():
     return genes
 
 
-def GetRandomIndividual(history, recDepth):
+def get_random_individual(history, recDepth):
     """
     Generate a new individual with random gene combination.
     :param history: A list containing all previous individuals. It is necessary to determine if
@@ -190,19 +190,19 @@ def GetRandomIndividual(history, recDepth):
         # return None, if maximum recursion depth is reached
         return
 
-    newIndividual = [GetRandomGenes(), 0]
+    newIndividual = [get_random_genes(), 0]
     # check if the new individual appears in history
     for indiv in history:
         if indiv[0] == newIndividual[0]:
             # individual not new, repeat with new random individual
-            return GetRandomIndividual(history, recDepth + 1)
+            return get_random_individual(history, recDepth + 1)
     # individual is new, add to history
     history.append(newIndividual)
 
     return newIndividual
 
 
-def GenerateInitialPopulation(numberOfInitialIndividuals, history, originalIndividual):
+def generate_initial_population(numberOfInitialIndividuals, history, originalIndividual):
     """
     Generate the initial population with random and new individuals.
     :param numberOfInitialIndividuals: The number ( > 0) of total individuals in the generated population.
@@ -218,7 +218,7 @@ def GenerateInitialPopulation(numberOfInitialIndividuals, history, originalIndiv
     print("Create initial Population of size " + str(numberOfInitialIndividuals) + " ...")
     for n in range(numberOfInitialIndividuals - 1):
         # generate new individual
-        newIndividual = GetRandomIndividual(history, 0)
+        newIndividual = get_random_individual(history, 0)
         if newIndividual is None:
             break
         # add to population, if new individual is available
@@ -226,14 +226,14 @@ def GenerateInitialPopulation(numberOfInitialIndividuals, history, originalIndiv
 
     # calculate score of initial population
     for indiv in newPopulation:
-        GetAndWriteScore(indiv)
+        get_and_write_score(indiv)
         print(indiv)
 
     return newPopulation
 
 
 # ## Mutation and Crossing Over Functions
-def GetNewRandomMutant(parent, history, recDepth, statsDataList):
+def get_new_random_mutant(parent, history, recDepth, statsDataList):
     """
     Creates a copy of the given individual (parent) and chooses by random choice a mutable position.
     For this position a random character of the allowed characters on this position is chosen.
@@ -265,14 +265,14 @@ def GetNewRandomMutant(parent, history, recDepth, statsDataList):
     for indiv in history:
         if indiv[0] == newMutant[0]:
             # repeat with new random mutation
-            return GetNewRandomMutant(parent, history, recDepth + 1, statsDataList)
+            return get_new_random_mutant(parent, history, recDepth + 1, statsDataList)
 
     history.append(newMutant)
     statsDataList[ITERATION_COUNT_MUTATION_INDEX] += 1
     return newMutant
 
 
-def GetRandomMutants(parent, numberOfNewMutants, history, statsDataList):
+def get_random_mutants(parent, numberOfNewMutants, history, statsDataList):
     """
     Get from a given parent individual several new mutants.
     :param parent: The parents gene combination is copied, before mutations are applied.
@@ -288,7 +288,7 @@ def GetRandomMutants(parent, numberOfNewMutants, history, statsDataList):
     # generate several mutants
     for mutant in range(numberOfNewMutants):
         # generate new individual, if available. Start at recursion depth 0.
-        newMutant = GetNewRandomMutant(parent, history, 0, statsDataList)
+        newMutant = get_new_random_mutant(parent, history, 0, statsDataList)
         if newMutant is None:
             break
         # only keep new individuals
@@ -297,7 +297,7 @@ def GetRandomMutants(parent, numberOfNewMutants, history, statsDataList):
     return mutants
 
 
-def MutatePopulation(inputPopulation, numberOfNewMutants, history, statsDataList):
+def mutate_population(inputPopulation, numberOfNewMutants, history, statsDataList):
     """
     Iterate through the whole population and create several mutants for each. All the original individuals from
     the inputPopulation and all new are transferred into the returned new population.
@@ -316,7 +316,7 @@ def MutatePopulation(inputPopulation, numberOfNewMutants, history, statsDataList
         # keep the individual in population
         newPopulation.append(parent)
         # generate new mutants
-        mutants = GetRandomMutants(parent, numberOfNewMutants, history, statsDataList)
+        mutants = get_random_mutants(parent, numberOfNewMutants, history, statsDataList)
         # add new mutants to population
         for mutant in mutants:
             newPopulation.append(mutant)
@@ -324,7 +324,7 @@ def MutatePopulation(inputPopulation, numberOfNewMutants, history, statsDataList
     return newPopulation
 
 
-def MutateAndKeepImprovements(inputPopulation, numberOfNewMutants, history, statsDataList):
+def mutate_and_keep_improvements(inputPopulation, numberOfNewMutants, history, statsDataList):
     """
     Iterate through the whole population and create several mutants for each. Only the original individuals from
     the inputPopulation and mutants with an improved score are transferred into the returned new population.
@@ -343,18 +343,18 @@ def MutateAndKeepImprovements(inputPopulation, numberOfNewMutants, history, stat
         # keep the individual in population
         newPopulation.append(parent)
         # generate new mutants
-        mutants = GetRandomMutants(parent, numberOfNewMutants, history, statsDataList)
+        mutants = get_random_mutants(parent, numberOfNewMutants, history, statsDataList)
         # check, if mutants are better than parent
         for mutant in mutants:
-            GetAndWriteScore(mutant)
-            if GetIndividualsScoreRelativeToTargetScore(mutant) < GetIndividualsScoreRelativeToTargetScore(parent):
+            get_and_write_score(mutant)
+            if get_individuals_score_relative_to_targetScore(mutant) < get_individuals_score_relative_to_targetScore(parent):
                 # if the mutant is an improvement, keep it in new population
                 newPopulation.append(mutant)
 
     return newPopulation
 
 
-def GetRandomMatingPartner(inputPopulation, matingPartnerOne):
+def get_random_mating_partner(inputPopulation, matingPartnerOne):
     """
     Get a random mating partner for cross over operations.
     :param inputPopulation: The population to pick from.
@@ -368,12 +368,12 @@ def GetRandomMatingPartner(inputPopulation, matingPartnerOne):
 
     matingPartnerTwo = random.choice(inputPopulation)
     if matingPartnerOne == matingPartnerTwo:
-        return GetRandomMatingPartner(inputPopulation, matingPartnerOne)
+        return get_random_mating_partner(inputPopulation, matingPartnerOne)
 
     return matingPartnerTwo
 
 
-def PerformCrossingOverClassic(inputPopulation, repetitions, history, statsDataList):
+def perform_crossing_over_classic(inputPopulation, repetitions, history, statsDataList):
     """
     Perform a classic cross over in terms of Genetic Algorithms with the whole population. All recombination
     are kept.
@@ -394,7 +394,7 @@ def PerformCrossingOverClassic(inputPopulation, repetitions, history, statsDataL
         index += 1
         # perform crossover with each following individual
         for matingPartnerNumber in range(repetitions):
-            matingPartnerTwo = GetRandomMatingPartner(inputPopulation, matingPartnerOne)
+            matingPartnerTwo = get_random_mating_partner(inputPopulation, matingPartnerOne)
             # set random crossover point, included in tail part
             crossPoint = random.choice(range(numberOfMutableAA - 1)) + 1
             # create new gene containing parts of the parents genes
@@ -409,7 +409,7 @@ def PerformCrossingOverClassic(inputPopulation, repetitions, history, statsDataL
             # if new, create individual and calculate score
             if isNew:
                 newIndividual = [newGene, 0]
-                GetAndWriteScore(newIndividual)
+                get_and_write_score(newIndividual)
                 # add to history and population
                 history.append(newIndividual)
                 statsDataList[ITERATION_COUNT_CROSSOVER_INDEX] += 1
@@ -418,7 +418,7 @@ def PerformCrossingOverClassic(inputPopulation, repetitions, history, statsDataL
     return newPopulation
 
 
-def GetRandomBitMask(length):
+def get_random_bit_mask(length):
     """
     Generate a random bit mask with the given length. The mask is used to perform a uniform crossing over.
     :param length: The length must match the number of mutable amino acids, if used for a uniform crossing over.
@@ -436,12 +436,12 @@ def GetRandomBitMask(length):
         else:
             justOne = False
     if justZero or justOne:
-        return GetRandomBitMask(length)
+        return get_random_bit_mask(length)
 
     return mask
 
 
-def PerformCrossingOverUniform(inputPopulation, repetitions, history, statsDataList):
+def perform_crossing_over_uniform(inputPopulation, repetitions, history, statsDataList):
     """
     Perform a uniform cross over in terms of Genetic Algorithms with the whole population. All recombination
     are kept. For each position, a coin flip chooses the parent.
@@ -460,9 +460,9 @@ def PerformCrossingOverUniform(inputPopulation, repetitions, history, statsDataL
     for matingPartnerOne in inputPopulation:
         # perform crossover with 'repetition' random individuals
         for matingPartnerNumber in range(repetitions):
-            matingPartnerTwo = GetRandomMatingPartner(inputPopulation, matingPartnerOne)
+            matingPartnerTwo = get_random_mating_partner(inputPopulation, matingPartnerOne)
             # create mask for choosing parent for each gene
-            mask = GetRandomBitMask(numberOfMutableAA)
+            mask = get_random_bit_mask(numberOfMutableAA)
             newGene = []
             for n in range(numberOfMutableAA):
                 if mask[n]:
@@ -483,7 +483,7 @@ def PerformCrossingOverUniform(inputPopulation, repetitions, history, statsDataL
             # if new, create individual and calculate score
             if isNew:
                 newIndividual = [newGene, 0]
-                GetAndWriteScore(newIndividual)
+                get_and_write_score(newIndividual)
                 # add to history and population
                 history.append(newIndividual)
                 statsDataList[ITERATION_COUNT_CROSSOVER_INDEX] += 1
@@ -493,7 +493,7 @@ def PerformCrossingOverUniform(inputPopulation, repetitions, history, statsDataL
 
 
 # ## Selection Functions
-def GetIndividualsScoreRelativeToTargetScore(inputIndividual):
+def get_individuals_score_relative_to_targetScore(inputIndividual):
     """
     Get the score value of an individual relative to the target score.
     :param inputIndividual: The individual of interest.
@@ -504,7 +504,7 @@ def GetIndividualsScoreRelativeToTargetScore(inputIndividual):
     return abs(targetScore - inputIndividual[1])
 
 
-def GerAverageScore(inputPopulation):
+def ger_average_score(inputPopulation):
     """
     Get the average absolute score of the population.
     :param inputPopulation: The population of interest.
@@ -517,7 +517,7 @@ def GerAverageScore(inputPopulation):
     return score / len(inputPopulation)
 
 
-def SelectFittestByNumber(selectionNumber, numberOfRandomPicks, inputPopulation):
+def select_fittest_by_number(selectionNumber, numberOfRandomPicks, inputPopulation):
     """
     Select a given number of individuals from the population, after it was sorted by fitness.
     :param selectionNumber: The number of individuals you want to select.
@@ -539,7 +539,7 @@ def SelectFittestByNumber(selectionNumber, numberOfRandomPicks, inputPopulation)
 
     keepPopulation = []
     # sort by score
-    inputPopulation.sort(reverse=False, key=GetIndividualsScoreRelativeToTargetScore)
+    inputPopulation.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
     # select first ones, representing the fittest individuals of the current population
     for index in range(int(selectionNumber - numberOfRandomPicks)):
         selectedIndividual = inputPopulation.pop(0)
@@ -554,7 +554,7 @@ def SelectFittestByNumber(selectionNumber, numberOfRandomPicks, inputPopulation)
     return keepPopulation
 
 
-def SelectFittestByFraction(fractionPercent, randomPicksPercent, inputPopulation):
+def select_fittest_by_fraction(fractionPercent, randomPicksPercent, inputPopulation):
     """
     Select a given proportion of individuals from the inputPopulation, after it was sorted by fitness.
     :param fractionPercent: A fraction in percent, written as float value in range [0, 1].
@@ -579,11 +579,11 @@ def SelectFittestByFraction(fractionPercent, randomPicksPercent, inputPopulation
     keepInt = int(fractionPercent * len(inputPopulation))
     randomPicks = int(randomPicksPercent * keepInt)
 
-    return SelectFittestByNumber(keepInt, randomPicks, inputPopulation)
+    return select_fittest_by_number(keepInt, randomPicks, inputPopulation)
 
 
 # ## Perform Evolution
-def CheckRoutine():
+def check_routine():
     """
     Iterates through the specified routine file and checks, if all commands
     are valid. The commands are not executed.
@@ -653,7 +653,7 @@ def CheckRoutine():
     return routineErrors
 
 
-def PerformRoutine(inputPopulation, history, statsDataList):
+def perform_routine(inputPopulation, history, statsDataList):
     """
     Iterates through the specified routine file and executes each command in the given order.
     :param inputPopulation: The population on which the evolution will be performed.
@@ -674,9 +674,9 @@ def PerformRoutine(inputPopulation, history, statsDataList):
     # init stat variables
     bestScoresOverTime = [inputPopulation[0][1]]
     averageScoresOverTime = [inputPopulation[0][1]]
-    inputPopulation.sort(reverse=False, key=GetIndividualsScoreRelativeToTargetScore)
+    inputPopulation.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
     bestScoresOverTime.append(inputPopulation[0][1])
-    averageScoresOverTime.append(GerAverageScore(inputPopulation))
+    averageScoresOverTime.append(ger_average_score(inputPopulation))
 
     # run routine
     routineStep = 0
@@ -691,19 +691,19 @@ def PerformRoutine(inputPopulation, history, statsDataList):
             if splitCommand[0] == MUTATE:
                 # perform mutation
                 mutationNumber = int(splitCommand[1])
-                inputPopulation = MutatePopulation(inputPopulation, mutationNumber, history, statsDataList)
+                inputPopulation = mutate_population(inputPopulation, mutationNumber, history, statsDataList)
             elif splitCommand[0] == MUTATE_PLUS:
                 # perform mutation
                 mutationNumber = int(splitCommand[1])
-                inputPopulation = MutateAndKeepImprovements(inputPopulation, mutationNumber, history, statsDataList)
+                inputPopulation = mutate_and_keep_improvements(inputPopulation, mutationNumber, history, statsDataList)
             elif splitCommand[0] == CROSSOVER:
                 # perform uniform crossing over
                 repetitionNumber = int(splitCommand[1])
-                inputPopulation = PerformCrossingOverUniform(inputPopulation, repetitionNumber, history, statsDataList)
+                inputPopulation = perform_crossing_over_uniform(inputPopulation, repetitionNumber, history, statsDataList)
             elif splitCommand[0] == CROSSOVER_CLASSIC:
                 # perform uniform crossing over
                 repetitionNumber = int(splitCommand[1])
-                inputPopulation = PerformCrossingOverClassic(inputPopulation, repetitionNumber, history, statsDataList)
+                inputPopulation = perform_crossing_over_classic(inputPopulation, repetitionNumber, history, statsDataList)
             elif splitCommand[0] == SELECT:
                 # select number or of fraction of mutants
                 selectionParam1 = float(splitCommand[1])
@@ -715,12 +715,12 @@ def PerformRoutine(inputPopulation, history, statsDataList):
                 # check selection method
                 if selectionParam1 > 1:
                     # select by number
-                    inputPopulation = SelectFittestByNumber(int(selectionParam1), int(selectionParam2), inputPopulation)
+                    inputPopulation = select_fittest_by_number(int(selectionParam1), int(selectionParam2), inputPopulation)
                 elif selectionParam1 >= 0:
                     # select by fraction
-                    inputPopulation = SelectFittestByFraction(selectionParam1, selectionParam2, inputPopulation)
+                    inputPopulation = select_fittest_by_fraction(selectionParam1, selectionParam2, inputPopulation)
                 bestScoresOverTime.append(inputPopulation[0][1])
-                averageScoresOverTime.append(GerAverageScore(inputPopulation))
+                averageScoresOverTime.append(ger_average_score(inputPopulation))
             elif splitCommand[0] == LOOP:
                 # set repeat
                 loopNumber = int(splitCommand[1]) - 1
@@ -741,23 +741,23 @@ def PerformRoutine(inputPopulation, history, statsDataList):
 
 # ## Perform Evolution
 # check errors in routine file
-errors = CheckRoutine()
+errors = check_routine()
 if len(errors) > 0:
     exit("Exit algorithm due to errors in routine file.")
 # no errors, proceed with evolution
 
 
 # init variables for evolution
-initialScore = GetAndWriteScore(original)
+initialScore = get_and_write_score(original)
 print("Initial amino acids: " + str(original[0]))
 print("Initial Score: " + str(initialScore) + "\n")
 totalHistory = []
 iterationCounts = [0, 0]
 
 # generate random population
-population = GenerateInitialPopulation(startPopulationSize, totalHistory, original)
+population = generate_initial_population(startPopulationSize, totalHistory, original)
 # perform the whole evolution routine
-routineResults = PerformRoutine(population, totalHistory, iterationCounts)
+routineResults = perform_routine(population, totalHistory, iterationCounts)
 population = routineResults[0]
 bestScores = routineResults[1]
 averageScores = routineResults[2]
@@ -767,7 +767,7 @@ averageScores = routineResults[2]
 count = 0
 bestScore = population[0][1]
 print("Best score: " + str(bestScore) + " | with difference to target score: "
-      + str(GetIndividualsScoreRelativeToTargetScore(population[0])))
+      + str(get_individuals_score_relative_to_targetScore(population[0])))
 for individual in population:
     if individual[1] == bestScore:
         count += 1
@@ -779,7 +779,7 @@ print("Number of accepted crossing overs: " + str(iterationCounts[ITERATION_COUN
 # output results
 resultsFileContent = "Population Size: " + str(len(population)) + "\n" \
                      + str("Best score: " + str(bestScore) + " | with difference to target score: "
-                           + str(GetIndividualsScoreRelativeToTargetScore(population[0]))) + "\n"
+                           + str(get_individuals_score_relative_to_targetScore(population[0]))) + "\n"
 resultsFileContent += str("Number of mutants sharing best score: " + str(count)) + "\n"
 resultsFileContent += "Number of accepted mutations: " + str(iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
 resultsFileContent += "Number of accepted crossing overs: " + str(iterationCounts[ITERATION_COUNT_CROSSOVER_INDEX])\
@@ -794,7 +794,7 @@ resultsFile.write(resultsFileContent)
 resultsFile.close()
 
 # output history
-totalHistory.sort(reverse=False, key=GetIndividualsScoreRelativeToTargetScore)
+totalHistory.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
 historyFileContent = "Entries in history: " + str(len(totalHistory)) + "\n"
 for individual in totalHistory:
     historyFileContent += str(individual[0]) + ", " + str(individual[1]) + "\n"
