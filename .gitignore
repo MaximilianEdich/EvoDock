@@ -4,6 +4,7 @@ MathTest.py
 # EvoDock specific
 EvoDock_history.txt
 EvoDock_results.txt
+EvoDock_output_run*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
