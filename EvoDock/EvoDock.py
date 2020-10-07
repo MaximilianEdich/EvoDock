@@ -35,17 +35,23 @@ Tyrosin	        Tyr	Y
 Valin	        Val	V
 """
 
+# initial settings file values
+START_POPULATION = "startpopulation"
+TARGET_SCORE = "targetscore"
+MODE = "mode"
+MODE_BINDING = "BINDING"
+
 # strings for commands
 MUTATE = "mutate"
 MUTATE_PLUS = "mutate+"
-CROSSOVER = "crossover"
-CROSSOVER_CLASSIC = "crossoverClassic"
+RECOMBINATION = "recombine"
+RECOMBINATION_CLASSIC = "recombine_classic"
 SELECT = "select"
 LOOP = "loop"
 
 # indices for lists
 ITERATION_COUNT_MUTATION_INDEX = 0
-ITERATION_COUNT_CROSSOVER_INDEX = 1
+ITERATION_COUNT_RECOMBINATION_INDEX = 1
 
 # global parameters
 global MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL
@@ -55,7 +61,6 @@ MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 100
 
 global PRINT_OUT
 PRINT_OUT = False
-
 
 # ## read out input arguments
 parser = argparse.ArgumentParser(description="EvoDock - An Evolutionary Algorithm for Protein optimization")
@@ -77,7 +82,9 @@ args = parser.parse_args()
 startPopulationSize = 0
 targetScore = 0
 original = [[], 0]
-aminoAcidPaths = []
+protein_name = ""
+mode = ""
+amino_acid_paths = []
 numberOfMutableAA = 0
 allowedMutations = []
 definedTargetScore = False
@@ -93,26 +100,32 @@ except FileNotFoundError:
 except PermissionError:
     exit("Error: Initial settings file can not be opened, permission denied!")
 
-
 lineIndex = 0
 for line in initialContent:
     lineIndex += 1
     # prepare line
     line = line.strip()
     splitText = line.split(' ')
-    if splitText[0] == "startpopulation":
+    if splitText[0] == START_POPULATION:
         # set value of initial population size, only int > 0
         try:
             startPopulationSize = int(splitText[1])
         except ValueError:
-            exit("Error, startpopulation value in initial settings file is not a valid number.")
+            exit("Error, " + START_POPULATION + " value in initial settings file is not a valid number, " \
+                 + "must be int: \""
+                 + splitText[1] + "\" in line " + str(lineIndex) + " of the initial settings file.")
         if startPopulationSize < 1:
-            exit("Error, illegal value in line " + str(lineIndex) + " of the initial settings file."
-                                                                    "Must be >= 1.")
-    elif splitText[0] == "targetscore":
+            exit("Error, illegal value in line " + str(lineIndex) + " of the initial settings file. Must be >= 1.")
+
+    elif splitText[0] == TARGET_SCORE:
         definedTargetScore = True
         # set the target score, any value possible
-        targetScore = int(splitText[1])
+        try:
+            targetScore = float(splitText[1])
+        except ValueError:
+            exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \"" \
+                 + splitText[1] + "\" in line " + str(lineIndex) + " of the initial settings file.")
+
     elif splitText[0][0:len("initial>")] == "initial>":
         # original individual
         initialGene = splitText[0][len("initial>"):].split(',')
@@ -130,10 +143,18 @@ for line in initialContent:
             allowedMutations.append(allowed)
     elif splitText[0] == "aa":
         # amino acid path
-        aminoAcidPaths.append(str(splitText[1]))
+        amino_acid_paths.append(str(splitText[1]))
+    elif splitText[0] == "prot":
+        # protein pdb code
+        protein_name = str(splitText[1])
+    elif splitText[0] == MODE:
+        # modification mode
+        mode = str(splitText[1])
+        if mode != MODE_BINDING:
+            exit("Error in line " + str(lineIndex) + " of the initial settings file. Unknown mode. Use one of these: " \
+                 + MODE_BINDING)
     else:
-        exit("Error, undefined keywords in line " + str(lineIndex) + " of the initial settings file.")
-
+        exit("Error, undefined keywords in line " + str(lineIndex) + " of the initial settings file: " + splitText[0])
 
 # catch undefined values
 if not original[0]:
@@ -142,31 +163,31 @@ if numberOfMutableAA != len(allowedMutations):
     exit("Error in initial settings file: Number of substitutions per position does not match with the number"
          "of mutable amino acids in the original protein!")
 if startPopulationSize == 0:
-    exit("Error in initial settings file: You have to specify the \"startpopulation n\" with n > 0!")
+    exit("Error in initial settings file: You have to specify the \"" + START_POPULATION + " n\" with n > 0!")
 if not definedTargetScore:
-    exit("Error in initial settings file: You have to specify the \"targetscore n\"!")
-
+    exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
 
 print(original)
-print(aminoAcidPaths)
+print(amino_acid_paths)
 
 # TODO load optional history as look up table for score to avoid long re-calculations
 lookUpScores = []
 
 
 # ## Score Function
-def get_and_write_score(targetIndividual, outPath):
+def get_and_write_score(target_individual, output_path):
     """
     Calculates the score of an individual and writes it into its score value.
-    :param targetIndividual: An individual in the form of [g, s], where s is the score
+    :param target_individual: An individual in the form of [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid.
-    :return: the calculated score as the individuals fitness, that was written into the score value of the individual.
+    :param output_path: The path leading to the output files.
+    :return: The calculated score as the individuals fitness, that was written into the score value of the individual.
     """
     # calculate the score (by using external software)
-    score = MutateDockScoreModule.get_score(targetIndividual, outPath, aminoAcidPaths)
+    score = MutateDockScoreModule.get_score(target_individual, original, output_path, protein_name, amino_acid_paths)
     # write the score into the individual and return score
-    targetIndividual[1] = score
+    target_individual[1] = score
     return score
 
 
@@ -248,7 +269,7 @@ def generate_initial_population(numberOfInitialIndividuals, history, originalInd
     return newPopulation
 
 
-# ## Mutation and Crossing Over Functions
+# ## Mutation and Recombination Functions
 def get_new_random_mutant(parent, history, recDepth, statsDataList):
     """
     Creates a copy of the given individual (parent) and chooses by random choice a mutable position.
@@ -313,27 +334,27 @@ def get_random_mutants(parent, numberOfNewMutants, history, statsDataList):
     return mutants
 
 
-def mutate_population(inputPopulation, numberOfNewMutants, history, statsDataList):
+def mutate_population(input_population, number_of_new_mutants, history, stats_data_list):
     """
     Iterate through the whole population and create several mutants for each. All the original individuals from
     the inputPopulation and all new are transferred into the returned new population.
-    :param inputPopulation: The population from which each individual is passed trough the mutation process.
-    :param numberOfNewMutants: The maximum number of new mutants generated by this function.
+    :param input_population: The population from which each individual is passed trough the mutation process.
+    :param number_of_new_mutants: The maximum number of new mutants generated by this function.
     :param history: A list containing all previous individuals. It is necessary to determine if
     a generated individual is new. The new individual will be added to the history during the process of this
     function.
-    :param statsDataList: Used to gather data for several stats.
+    :param stats_data_list: Used to gather data for several stats.
     :return: A new population containing the whole inputPopulation and all new mutants.
     """
     if PRINT_OUT:
         print("\ncreate Mutants from individuals")
     newPopulation = []
     # for each individual in population
-    for parent in inputPopulation:
+    for parent in input_population:
         # keep the individual in population
         newPopulation.append(parent)
         # generate new mutants
-        mutants = get_random_mutants(parent, numberOfNewMutants, history, statsDataList)
+        mutants = get_random_mutants(parent, number_of_new_mutants, history, stats_data_list)
         # add new mutants to population
         for mutant in mutants:
             newPopulation.append(mutant)
@@ -365,7 +386,7 @@ def mutate_and_keep_improvements(inputPopulation, numberOfNewMutants, history, s
         # check, if mutants are better than parent
         for mutant in mutants:
             get_and_write_score(mutant, outPath)
-            if get_individuals_score_relative_to_targetScore(mutant) <\
+            if get_individuals_score_relative_to_targetScore(mutant) < \
                     get_individuals_score_relative_to_targetScore(parent):
                 # if the mutant is an improvement, keep it in new population
                 newPopulation.append(mutant)
@@ -375,7 +396,7 @@ def mutate_and_keep_improvements(inputPopulation, numberOfNewMutants, history, s
 
 def get_random_mating_partner(inputPopulation, matingPartnerOne):
     """
-    Get a random mating partner for cross over operations.
+    Get a random mating partner for recombination operations.
     :param inputPopulation: The population to pick from.
     :param matingPartnerOne: The individual you search a mating partner for.
     :return: If the population contains only one individual, the given matingPartnerOne is returned.
@@ -392,11 +413,11 @@ def get_random_mating_partner(inputPopulation, matingPartnerOne):
     return matingPartnerTwo
 
 
-def perform_crossing_over_classic(inputPopulation, repetitions, history, statsDataList, outPath):
+def perform_recombination_classic(inputPopulation, repetitions, history, statsDataList, outPath):
     """
     Perform a classic cross over in terms of Genetic Algorithms with the whole population. All recombination
     are kept.
-    :param inputPopulation: The population from which each individual is passed trough the crossing over process.
+    :param inputPopulation: The population from which each individual is passed trough the recombination process.
     :param repetitions: Number, how many mating partners are chosen for each individual in the population.
     :param history: A list containing all previous individuals. It is necessary to determine if
     a generated individual is new. The new individual will be added to the history within
@@ -411,7 +432,7 @@ def perform_crossing_over_classic(inputPopulation, repetitions, history, statsDa
     index = 0
     for matingPartnerOne in inputPopulation:
         index += 1
-        # perform crossover with each following individual
+        # perform recombination with each following individual
         for matingPartnerNumber in range(repetitions):
             matingPartnerTwo = get_random_mating_partner(inputPopulation, matingPartnerOne)
             # set random crossover point, included in tail part
@@ -431,7 +452,7 @@ def perform_crossing_over_classic(inputPopulation, repetitions, history, statsDa
                 get_and_write_score(newIndividual, outPath)
                 # add to history and population
                 history.append(newIndividual)
-                statsDataList[ITERATION_COUNT_CROSSOVER_INDEX] += 1
+                statsDataList[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
                 newPopulation.append(newIndividual)
 
     return newPopulation
@@ -439,8 +460,8 @@ def perform_crossing_over_classic(inputPopulation, repetitions, history, statsDa
 
 def get_random_bit_mask(length):
     """
-    Generate a random bit mask with the given length. The mask is used to perform a uniform crossing over.
-    :param length: The length must match the number of mutable amino acids, if used for a uniform crossing over.
+    Generate a random bit mask with the given length. The mask is used to perform a uniform recombination.
+    :param length: The length must match the number of mutable amino acids, if used for a uniform recombination.
     :return: A list with the specified length, containing a zero or a one randomly chosen for each position.
     """
     mask = []
@@ -460,11 +481,11 @@ def get_random_bit_mask(length):
     return mask
 
 
-def perform_crossing_over_uniform(inputPopulation, repetitions, history, statsDataList, outPath):
+def perform_uniform_recombination(inputPopulation, repetitions, history, statsDataList, outPath):
     """
-    Perform a uniform cross over in terms of Genetic Algorithms with the whole population. All recombination
+    Perform a uniform recombination in terms of Genetic Algorithms with the whole population. All recombination
     are kept. For each position, a coin flip chooses the parent.
-    :param inputPopulation: The population from which each individual is passed trough the crossing over process.
+    :param inputPopulation: The population from which each individual is passed trough the recombination process.
     :param repetitions: Number, how many mating partners are chosen for each individual in the population.
     :param history: A list containing all previous individuals. It is necessary to determine if
     a generated individual is new. The new individual will be added to the history within
@@ -477,7 +498,7 @@ def perform_crossing_over_uniform(inputPopulation, repetitions, history, statsDa
     # add whole input population
     newPopulation.extend(inputPopulation)
     for matingPartnerOne in inputPopulation:
-        # perform crossover with 'repetition' random individuals
+        # perform recombination with 'repetition' random individuals
         for matingPartnerNumber in range(repetitions):
             matingPartnerTwo = get_random_mating_partner(inputPopulation, matingPartnerOne)
             # create mask for choosing parent for each gene
@@ -506,7 +527,7 @@ def perform_crossing_over_uniform(inputPopulation, repetitions, history, statsDa
                 get_and_write_score(newIndividual, outPath)
                 # add to history and population
                 history.append(newIndividual)
-                statsDataList[ITERATION_COUNT_CROSSOVER_INDEX] += 1
+                statsDataList[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
                 newPopulation.append(newIndividual)
 
     return newPopulation
@@ -604,7 +625,7 @@ def select_fittest_by_fraction(fractionPercent, randomPicksPercent, inputPopulat
     # calculate number of individuals being selected
     keepInt = round(fractionPercent * len(inputPopulation))
     randomPicks = int(randomPicksPercent * keepInt)
-    print (str(keepInt) + " - " + str(randomPicks))
+    print(str(keepInt) + " - " + str(randomPicks))
     if keepInt < 1:
         keepInt = 1
 
@@ -635,49 +656,76 @@ def check_routine():
                 undefined = True
         else:
             if splitCommand[0] == MUTATE:
-                mutationNumber = int(splitCommand[1])
-                if mutationNumber < 0:
+                try:
+                    mutationNumber = int(splitCommand[1])
+                    if mutationNumber < 0:
+                        error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                            splitCommand[1]) + ". Must be >= 0"
+                except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        splitCommand[1])
+                        splitCommand[1]) + ". Must be an integer"
             elif splitCommand[0] == MUTATE_PLUS:
-                mutationNumber = int(splitCommand[1])
-                if mutationNumber < 0:
+                try:
+                    mutationNumber = int(splitCommand[1])
+                    if mutationNumber < 0:
+                        error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                            splitCommand[1]) + ". Must be >= 0"
+                except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        splitCommand[1])
-            elif splitCommand[0] == CROSSOVER:
-                repetitionNumber = int(splitCommand[1])
-                if repetitionNumber < 0:
+                        splitCommand[1]) + ". Must be an integer"
+            elif splitCommand[0] == RECOMBINATION:
+                try:
+                    repetitionNumber = int(splitCommand[1])
+                    if repetitionNumber < 0:
+                        error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                            splitCommand[1]) + ". Must be >= 0"
+                except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        splitCommand[1])
-            elif splitCommand[0] == CROSSOVER_CLASSIC:
-                repetitionNumber = int(splitCommand[1])
-                if repetitionNumber < 0:
+                        splitCommand[1]) + ". Must be an integer"
+            elif splitCommand[0] == RECOMBINATION_CLASSIC:
+                try:
+                    repetitionNumber = int(splitCommand[1])
+                    if repetitionNumber < 0:
+                        error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                            splitCommand[1]) + ". Must be >= 0"
+                except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        splitCommand[1])
+                        splitCommand[1]) + ". Must be an integer"
             elif splitCommand[0] == SELECT:
-                selectionParam = float(splitCommand[1])
-                if selectionParam < 0:
-                    error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        splitCommand[1])
-                if len(splitCommand) > 2:
-                    selectionParam = float(splitCommand[2])
+                try:
+                    selectionParam = float(splitCommand[1])
                     if selectionParam < 0:
                         error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                            splitCommand[1])
+                            splitCommand[1]) + ". Must be >= 0"
+                    if len(splitCommand) > 2:
+                        try:
+                            selectionParam = float(splitCommand[2])
+                            if selectionParam < 0:
+                                error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                                    splitCommand[1]) + ". Must be >= 0"
+                        except ValueError:
+                            error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                                splitCommand[1]) + ". Must be float"
+                except ValueError:
+                    error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                        splitCommand[1]) + ". Must be float or integer"
 
             elif splitCommand[0] == LOOP:
-                repeatNumber = int(splitCommand[1])
-                if repeatNumber < 1:
-                    error = "Error in routine file, illegal value in line " \
-                            + str(index) + ": " + str(splitCommand[1] + ". Must be an int, >= 1")
+                try:
+                    repeatNumber = int(splitCommand[1])
+                    if repeatNumber < 1:
+                        error = "Error in routine file, illegal value in line " \
+                                + str(index) + ": " + str(splitCommand[1] + ". Must be an int, >= 1")
+                except ValueError:
+                    error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                        splitCommand[1]) + ". Must bean integer"
             else:
                 undefined = True
         if undefined:
             error = "Error in routine file, undefined keyword in line " + str(index) + ": " + str(splitCommand[0])
 
         if error is not None:
-            if PRINT_OUT:
-                print(error)
+            print(error)
             routineErrors.append(error)
 
     return routineErrors
@@ -729,15 +777,15 @@ def perform_routine(inputPopulation, history, statsDataList, outPath):
                 mutationNumber = int(splitCommand[1])
                 inputPopulation = mutate_and_keep_improvements(inputPopulation, mutationNumber, history,
                                                                statsDataList, outPath)
-            elif splitCommand[0] == CROSSOVER:
-                # perform uniform crossing over
+            elif splitCommand[0] == RECOMBINATION:
+                # perform uniform recombination
                 repetitionNumber = int(splitCommand[1])
-                inputPopulation = perform_crossing_over_uniform(inputPopulation, repetitionNumber, history,
+                inputPopulation = perform_uniform_recombination(inputPopulation, repetitionNumber, history,
                                                                 statsDataList, outPath)
-            elif splitCommand[0] == CROSSOVER_CLASSIC:
-                # perform uniform crossing over
+            elif splitCommand[0] == RECOMBINATION_CLASSIC:
+                # perform uniform recombination
                 repetitionNumber = int(splitCommand[1])
-                inputPopulation = perform_crossing_over_classic(inputPopulation, repetitionNumber, history,
+                inputPopulation = perform_recombination_classic(inputPopulation, repetitionNumber, history,
                                                                 statsDataList, outPath)
             elif splitCommand[0] == SELECT:
                 # select number or of fraction of mutants
@@ -799,11 +847,11 @@ minute = str(startTime.minute)
 if len(minute) == 1:
     minute = "0" + minute
 runString = str(startTime.year) + "-" + month + "-" + day + "_" + hour + "-" + minute
-outPath = "EvoDock_output_run_" + runString
+out_path = "EvoDock_output_run_" + runString
 try:
-    Path(outPath).mkdir(parents=True, exist_ok=False)
+    Path(out_path).mkdir(parents=True, exist_ok=False)
 except FileExistsError:
-    exit("Error: Folder with the name '" + outPath + "' already exists. Rename it or wait a minute!")
+    exit("Error: Folder with the name '" + out_path + "' already exists. Rename it or wait a minute!")
 
 # init variables for evolution
 totalHistory = []
@@ -811,9 +859,9 @@ iterationCounts = [0, 0]
 
 # generate random population
 print("Generate initial Population...")
-population = generate_initial_population(startPopulationSize, totalHistory, original, outPath)
+population = generate_initial_population(startPopulationSize, totalHistory, original, out_path)
 # perform the whole evolution routine
-routineResults = perform_routine(population, totalHistory, iterationCounts, outPath)
+routineResults = perform_routine(population, totalHistory, iterationCounts, out_path)
 population = routineResults[0]
 bestScores = routineResults[1]
 averageScores = routineResults[2]
@@ -829,7 +877,7 @@ for individual in population:
         count += 1
 print("Number of mutants sharing best score: " + str(count))
 print("Number of accepted mutations: " + str(iterationCounts[ITERATION_COUNT_MUTATION_INDEX]))
-print("Number of accepted crossing overs: " + str(iterationCounts[ITERATION_COUNT_CROSSOVER_INDEX]))
+print("Number of accepted recombination products: " + str(iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX]))
 
 # ## Save Output
 # output results
@@ -838,14 +886,14 @@ resultsFileContent = "Population Size: " + str(len(population)) + "\n" \
                            + str(get_individuals_score_relative_to_targetScore(population[0]))) + "\n"
 resultsFileContent += str("Number of mutants sharing best score: " + str(count)) + "\n"
 resultsFileContent += "Number of accepted mutations: " + str(iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
-resultsFileContent += "Number of accepted crossing overs: " + str(iterationCounts[ITERATION_COUNT_CROSSOVER_INDEX])\
-                      + "\n"
+resultsFileContent += "Number of accepted recombination products: " \
+                      + str(iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX]) + "\n"
 resultsFileContent += "Best Score over Time: " + str(bestScores) + "\n"
 resultsFileContent += "Average Score over Time: " + str(averageScores) + "\n"
 for individual in population:
     resultsFileContent += str(individual[0]) + ", " + str(individual[1]) + "\n"
 
-resultsFile = open(outPath + "/EvoDock_results.txt", 'w')
+resultsFile = open(out_path + "/EvoDock_results.txt", 'w')
 resultsFile.write(resultsFileContent)
 resultsFile.close()
 
@@ -855,7 +903,7 @@ historyFileContent = "Entries in history: " + str(len(totalHistory)) + "\n"
 for individual in totalHistory:
     historyFileContent += str(individual[0]) + ", " + str(individual[1]) + "\n"
 
-historyFile = open(outPath + "/EvoDock_history.txt", 'w')
+historyFile = open(out_path + "/EvoDock_history.txt", 'w')
 historyFile.write(historyFileContent)
 historyFile.close()
 
@@ -863,7 +911,7 @@ historyFile.close()
 endTime = datetime.datetime.now()
 print(endTime - startTime)
 runInfoFileContent = "Run information of run " + runString + "\n"
-runInfoFile = open(outPath + "/EvoDock_run_information.txt", 'w')
+runInfoFile = open(out_path + "/EvoDock_run_information.txt", 'w')
 runInfoFile.write(runInfoFileContent)
 runInfoFile.close()
 

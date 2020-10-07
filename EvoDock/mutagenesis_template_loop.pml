@@ -1,3 +1,7 @@
+# start mutagenesis wizard
+cmd.wizard("mutagenesis")
+cmd.do("refresh_wizard")
+
 # mutate
 cmd.get_wizard().set_mode("MUT_AA")
 cmd.get_wizard().do_select("RESIDUE_N")
@@ -7,6 +11,7 @@ cmd.frame(1)
 
 # Apply the mutation
 cmd.get_wizard().apply()
+
 # Close wizard
 cmd.set_wizard("done")
 

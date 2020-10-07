@@ -1,5 +1,7 @@
-startpopulation 100
+startpopulation 10
+mode BINDING
 targetscore 100
+prot 1rgs
 aa /1rgs/A/A/299
 aa /1rgs/A/A/333
 aa /1rgs/A/A/371

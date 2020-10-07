@@ -1,5 +1,5 @@
 mutate+ 4
 select 0.1
 loop 5
-crossover 8
+recombine 8
 select 0.1 0.25

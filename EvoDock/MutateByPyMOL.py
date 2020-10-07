@@ -1,128 +1,156 @@
 """
-
+Performs a mutagenesis via the external Software PyMOL.
 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
 import os
 
-FULL_TEMPLATE = ""
+HEAD_TEMPLATE = ""
+LOOP_TEMPLATE = ""
+TAIL_TEMPLATE = ""
 
 
-def get_3_letter_code(singleLetter):
+def get_3_letter_code(single_letter):
     """
     Converts a single letter amino acid code to a three letter amino acid code.
-    :param singleLetter: Single letter of the one letter amino acid code.
+    :param single_letter: Single letter of the one letter amino acid code.
     :return: The corresponding three letter amino acid code, if entered correct letter, otherwise an empty string.
     """
 
-    if singleLetter == 'A':
+    if single_letter == 'A':
         return "ALA"
-    if singleLetter == 'R':
+    if single_letter == 'R':
         return "ARG"
-    if singleLetter == 'N':
+    if single_letter == 'N':
         return "ASN"
-    if singleLetter == 'D':
+    if single_letter == 'D':
         return "ASP"
-    if singleLetter == 'C':
+    if single_letter == 'C':
         return "CYS"
-    if singleLetter == 'Q':
+    if single_letter == 'Q':
         return "GLN"
-    if singleLetter == 'E':
+    if single_letter == 'E':
         return "GLU"
-    if singleLetter == 'G':
+    if single_letter == 'G':
         return "GLY"
-    if singleLetter == 'H':
+    if single_letter == 'H':
         return "HIS"
-    if singleLetter == 'I':
+    if single_letter == 'I':
         return "ILE"
-    if singleLetter == 'L':
+    if single_letter == 'L':
         return "LEU"
-    if singleLetter == 'K':
+    if single_letter == 'K':
         return "LYS"
-    if singleLetter == 'M':
+    if single_letter == 'M':
         return "MET"
-    if singleLetter == 'F':
+    if single_letter == 'F':
         return "PHE"
-    if singleLetter == 'P':
+    if single_letter == 'P':
         return "PRO"
-    if singleLetter == 'S':
+    if single_letter == 'S':
         return "SER"
-    if singleLetter == 'T':
+    if single_letter == 'T':
         return "THR"
-    if singleLetter == 'W':
+    if single_letter == 'W':
         return "TRP"
-    if singleLetter == 'Y':
+    if single_letter == 'Y':
         return "TYR"
-    if singleLetter == 'V':
+    if single_letter == 'V':
         return "VAL"
 
     return ""
 
 
-def get_template(aminoAcidPaths):
+def get_template(amino_acid_paths, mutations, protein_code):
     """
-    :param aminoAcidPaths:
-    :return:
+    Create the template for a specific protein.
+    :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
+    :param mutations: List of mutations relative to the original protein. An empty string represents no mutation while
+    any substitution is represented by the given single letter code of the amino acid.
+    :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
+    :return: The specific template for the creation of the specific pml file to perform the mutagenesis.
     """
 
     # create template on the first run
-    global FULL_TEMPLATE
-    if FULL_TEMPLATE == "":
+    global HEAD_TEMPLATE
+    global LOOP_TEMPLATE
+    global TAIL_TEMPLATE
+
+    if HEAD_TEMPLATE == "":
         # load head part
         template = open("mutagenesis_template_head.pml", 'r')
-        templateContent = ""
+        headContent = ""
         for line in template.readlines():
-            templateContent += line
+            headContent += line
         template.close()
+        headContent = headContent.replace("PROT_NAME", protein_code)
+        HEAD_TEMPLATE = headContent
+
         # load loop part
         template = open("mutagenesis_template_loop.pml", 'r')
-        loopContent = template.readlines()
-        for path in aminoAcidPaths:
-            for line in loopContent:
-                templateContent += line
-            templateContent = templateContent.replace("RESIDUE_N", str(path))
-            templateContent = templateContent.replace("RESIDUE_SL", str(path)[1:].replace("/", "_"))
+        loopContent = ""
+        for line in template.readlines():
+            loopContent += line
         template.close()
+        loopContent = loopContent.replace("CLEAN_RANGE", "5")
+        LOOP_TEMPLATE = loopContent
+
+        # templateContent = templateContent.replace("RESIDUE_N", str(path))
+        # templateContent = templateContent.replace("RESIDUE_SL", str(path)[1:].replace("/", "_"))
+
         # load tail part
         template = open("mutagenesis_template_tail.pml", 'r')
+        tailContent = ""
         for line in template.readlines():
-            templateContent += line
+            tailContent += line
         template.close()
-        # insert general information
-        templateContent = templateContent.replace("PROT_NAME", "1rgs")
-        templateContent = templateContent.replace("CLEAN_RANGE", "5")
-        # save run specific template
-        FULL_TEMPLATE = templateContent
+        tailContent = tailContent.replace("PROT_NAME", protein_code)
+        TAIL_TEMPLATE = tailContent
 
-    return FULL_TEMPLATE
+    i = 0
+    template = HEAD_TEMPLATE
+    for aa in mutations:
+        if not aa == "":
+            template += LOOP_TEMPLATE
+            template = template.replace("RESIDUE_N", str(amino_acid_paths[i]))
+            template = template.replace("RESIDUE_SL", str(amino_acid_paths[i])[1:].replace("/", "_"))
+        i += 1
+    template += TAIL_TEMPLATE
+
+    return template
 
 
-def generate_docking_input(targetIndividual, outPath, aminoAcidPaths):
+def generate_docking_input(mutations, out_path, amino_acid_paths, protein_code):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
-    adapt the backbone to the change.
-    :param aminoAcidPaths:
-    :param outPath:
-    :param targetIndividual:
-    :return:
+    adapt the backbone to the change. Results are saved in a new pdb file. During this process a pml file is
+    generated, containing the PyMOL script that performs the mutagenesis.
+    :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
+    :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
+    :param out_path: The path leading to the output files specific to the mutation.
+    :param mutations: List of mutations relative to the original protein. An empty string represents no mutation while
+    any substitution is represented by the given single letter code of the amino acid.
+    :return: Nothing.
     """
 
     # load template for mutagenesis
-    templateContent = get_template(aminoAcidPaths)
+    templateContent = get_template(amino_acid_paths, mutations, protein_code)
 
     # insert unique mutation information
-    for aa in targetIndividual[0]:
-        templateContent = templateContent.replace("MUT_AA", get_3_letter_code(aa), 1)
-    templateContent = templateContent.replace("SAVE_PATH", outPath + ".pdb")
+    for aa in mutations:
+        if not aa == "":
+            # replace next "MUT_AA" with 3-letter code of mutated amino acid
+            templateContent = templateContent.replace("MUT_AA", get_3_letter_code(aa), 1)
+    templateContent = templateContent.replace("SAVE_PATH", out_path + ".pdb")
 
     # save pml file
-    mutagenesisFile = open(outPath + "_mutagenesis.pml", 'w')
+    mutagenesisFile = open(out_path + "_mutagenesis.pml", 'w')
     mutagenesisFile.write(templateContent)
     mutagenesisFile.close()
 
     # run pymol and generate pdb as docking input
-    cmd = "C:/ProgramData/PyMOL/PyMOLWin.exe -cq " + outPath + "_mutagenesis.pml"
-    #os.system(cmd)
+    cmd = "C:/ProgramData/PyMOL/PyMOLWin.exe -cq " + out_path + "_mutagenesis.pml"
+    os.system(cmd)
 
     return
