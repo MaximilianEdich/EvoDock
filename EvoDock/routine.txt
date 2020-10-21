@@ -1,5 +1,4 @@
-mutate+ 4
-select 0.1
+select 0.3
 loop 5
-recombine 8
-select 0.1 0.25
+recombine 10
+select 24 0.25

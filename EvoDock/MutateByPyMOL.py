@@ -80,33 +80,33 @@ def get_template(amino_acid_paths, mutations, protein_code):
     if HEAD_TEMPLATE == "":
         # load head part
         template = open("mutagenesis_template_head.pml", 'r')
-        headContent = ""
+        head_content = ""
         for line in template.readlines():
-            headContent += line
+            head_content += line
         template.close()
-        headContent = headContent.replace("PROT_NAME", protein_code)
-        HEAD_TEMPLATE = headContent
+        head_content = head_content.replace("PROT_NAME", protein_code)
+        HEAD_TEMPLATE = head_content
 
         # load loop part
         template = open("mutagenesis_template_loop.pml", 'r')
-        loopContent = ""
+        loop_content = ""
         for line in template.readlines():
-            loopContent += line
+            loop_content += line
         template.close()
-        loopContent = loopContent.replace("CLEAN_RANGE", "5")
-        LOOP_TEMPLATE = loopContent
+        loop_content = loop_content.replace("CLEAN_RANGE", "5")
+        LOOP_TEMPLATE = loop_content
 
         # templateContent = templateContent.replace("RESIDUE_N", str(path))
         # templateContent = templateContent.replace("RESIDUE_SL", str(path)[1:].replace("/", "_"))
 
         # load tail part
         template = open("mutagenesis_template_tail.pml", 'r')
-        tailContent = ""
+        tail_content = ""
         for line in template.readlines():
-            tailContent += line
+            tail_content += line
         template.close()
-        tailContent = tailContent.replace("PROT_NAME", protein_code)
-        TAIL_TEMPLATE = tailContent
+        tail_content = tail_content.replace("PROT_NAME", protein_code)
+        TAIL_TEMPLATE = tail_content
 
     i = 0
     template = HEAD_TEMPLATE
@@ -135,19 +135,19 @@ def generate_docking_input(mutations, out_path, amino_acid_paths, protein_code):
     """
 
     # load template for mutagenesis
-    templateContent = get_template(amino_acid_paths, mutations, protein_code)
+    template_content = get_template(amino_acid_paths, mutations, protein_code)
 
     # insert unique mutation information
     for aa in mutations:
         if not aa == "":
             # replace next "MUT_AA" with 3-letter code of mutated amino acid
-            templateContent = templateContent.replace("MUT_AA", get_3_letter_code(aa), 1)
-    templateContent = templateContent.replace("SAVE_PATH", out_path + ".pdb")
+            template_content = template_content.replace("MUT_AA", get_3_letter_code(aa), 1)
+    template_content = template_content.replace("SAVE_PATH", out_path + ".pdb")
 
     # save pml file
-    mutagenesisFile = open(out_path + "_mutagenesis.pml", 'w')
-    mutagenesisFile.write(templateContent)
-    mutagenesisFile.close()
+    mutagenesis_file = open(out_path + "_mutagenesis.pml", 'w')
+    mutagenesis_file.write(template_content)
+    mutagenesis_file.close()
 
     # run pymol and generate pdb as docking input
     cmd = "C:/ProgramData/PyMOL/PyMOLWin.exe -cq " + out_path + "_mutagenesis.pml"

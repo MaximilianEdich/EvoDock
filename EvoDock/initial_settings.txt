@@ -1,4 +1,4 @@
-startpopulation 10
+startpopulation 100
 mode BINDING
 targetscore 100
 prot 1rgs

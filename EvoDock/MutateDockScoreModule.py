@@ -7,11 +7,27 @@ protein. Next the protein will be used in docking and get a score.
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-import MutateTemplate
-import DockTemplate
-import ScoreTemplate
+import MutateTemplate as mutate_mod
+import DockTemplate as dock_mod
+import ScoreTemplate as score_mod
 
-import MutateByPyMOL
+
+
+class MutateDockScore():
+    def __init__(self):
+        self.original_individual = None
+        self.out_path = None
+        self.protein_code = None
+        self.amino_acid_paths = None
+        return
+
+
+    def set_values(self, original_individual, out_path, protein_code, amino_acid_paths):
+        self.original_individual = original_individual
+        self.out_path = out_path
+        self.protein_code = protein_code
+        self.amino_acid_paths = amino_acid_paths
+        return
 
 
 def generate_docking_input(mutations, run_out_path, protein_code, amino_acid_paths):
@@ -24,7 +40,7 @@ def generate_docking_input(mutations, run_out_path, protein_code, amino_acid_pat
     :return: None. The generated files are of interest.
     """
 
-    MutateTemplate.generate_docking_input(mutations, run_out_path, amino_acid_paths, protein_code)
+    mutate_mod.generate_docking_input(mutations, run_out_path, amino_acid_paths, protein_code)
 
     return
 
@@ -35,7 +51,7 @@ def perform_docking(mutations, run_out_path, amino_acid_paths, protein_code):
     :return:
     """
 
-    DockTemplate.perform_docking(mutations, run_out_path, amino_acid_paths, protein_code)
+    dock_mod.perform_docking(mutations, run_out_path, amino_acid_paths, protein_code)
 
     return
 
@@ -49,7 +65,7 @@ def calculate_fitness_score(target_individual, mutations, run_out_path, amino_ac
     :return: the calculated score as the individuals fitness.
     """
 
-    ScoreTemplate.calculate_fitness(mutations, run_out_path, amino_acid_paths, protein_code)
+    score_mod.calculate_fitness(mutations, run_out_path, amino_acid_paths, protein_code)
 
     score = 0
     for aa in target_individual[0]:
@@ -59,29 +75,26 @@ def calculate_fitness_score(target_individual, mutations, run_out_path, amino_ac
     return score
 
 
-def get_score(target_individual, original_individual, out_path, protein_code, amino_acid_paths):
+def get_score(target_individual, mds: MutateDockScore):
     """
     Use the given input to generate a mutant and perform a ligand docking, both via external software tools.
     Output information of both tools is then used to determine a score that is usable as a fitness score for evolution.
     :param target_individual: An individual in the form of [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid.
-    :param original_individual: The original protein input representing the very first individual.
-    :param out_path: The path leading to the output files.
-    :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
-    :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
 
     :return: The calculated score as the individuals fitness, that was written into the score value of the individual.
     """
+
     # define output-folder for this mutant
-    run_out_path = out_path + "/Mutant"
+    run_out_path = mds.out_path + "/Mutant"
     for x in target_individual[0]:
         run_out_path += "_" + str(x)
 
     # identify real mutations
     mutations = []
-    for k in range(len(original_individual[0])):
-        if original_individual[0][k] == target_individual[0][k]:
+    for k in range(len(mds.original_individual[0])):
+        if mds.original_individual[0][k] == target_individual[0][k]:
             # no change in this position compared to target
             mutations.append("")
         else:
@@ -89,12 +102,12 @@ def get_score(target_individual, original_individual, out_path, protein_code, am
             mutations.append((target_individual[0][k]))
 
     # generate new pdb as input for docking
-    generate_docking_input(mutations, run_out_path, protein_code, amino_acid_paths)
+    generate_docking_input(mutations, run_out_path, mds.protein_code, mds.amino_acid_paths)
 
     # use fresh input for protein-ligand docking
-    perform_docking(mutations, run_out_path, amino_acid_paths, protein_code)
+    perform_docking(mutations, run_out_path, mds.amino_acid_paths, mds.protein_code)
 
     # use results to calculate fitness score
-    score = calculate_fitness_score(target_individual, mutations, run_out_path, amino_acid_paths, protein_code)
+    score = calculate_fitness_score(target_individual, mutations, run_out_path, mds.amino_acid_paths, mds.protein_code)
 
     return score
