@@ -1,5 +1,5 @@
 startpopulation 100
-mode BINDING
+mode LIGAND-BINDING
 targetscore 100
 prot 1rgs
 aa /1rgs/A/A/299

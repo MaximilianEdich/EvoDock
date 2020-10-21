@@ -55,7 +55,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/EvoDock.py" />
-      <option name="PARAMETERS" value="-s &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\initial_settings.txt&quot; -r &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\routine.txt&quot; -pre &quot;Test1_&quot;" />
+      <option name="PARAMETERS" value="-s &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\initial_settings.txt&quot; -r &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\routine.txt&quot;" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />

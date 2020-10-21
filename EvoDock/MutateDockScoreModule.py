@@ -7,10 +7,9 @@ protein. Next the protein will be used in docking and get a score.
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-import MutateTemplate as mutate_mod
+import MutateByPyRosetta as mutate_mod
 import DockTemplate as dock_mod
 import ScoreTemplate as score_mod
-
 
 
 class MutateDockScore():

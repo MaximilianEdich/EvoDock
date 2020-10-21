@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 import datetime
 
-PLOT = True
+PLOT = False
 if PLOT:
     import matplotlib.pyplot as plt
 
@@ -43,7 +43,9 @@ Valin	        Val	V
 START_POPULATION = "startpopulation"
 TARGET_SCORE = "targetscore"
 MODE = "mode"
-MODE_BINDING = "BINDING"
+MODE_LIGAND_BINDING = "LIGAND-BINDING"
+MODE_PROTEIN_BINDING = "PROTEIN-BINDING"
+MODE_THERMO_STABILITY = "THERMO-STABILITY"
 
 # strings for commands
 MUTATE = "mutate"
@@ -95,19 +97,32 @@ number_of_mutable_aa = 0
 allowed_mutations = []
 defined_target_score = False
 
-# try to load initial settings file
-initial_content = ""
+# load files
+# # try to load routine settings file
+routine_file_content = ""
+try:
+    routine_file = open(args.routine, 'r')
+    routine_file_content = routine_file.readlines()
+    routine_file.close()
+except FileNotFoundError:
+    exit("Error: Initial settings file does not exist!")
+except PermissionError:
+    exit("Error: Initial settings file can not be opened, permission denied!")
+
+# # try to load initial settings file
+initial_settings_file_content = ""
 try:
     initial_file = open(args.settings, 'r')
-    initial_content = initial_file.readlines()
+    initial_settings_file_content = initial_file.readlines()
     initial_file.close()
 except FileNotFoundError:
     exit("Error: Initial settings file does not exist!")
 except PermissionError:
     exit("Error: Initial settings file can not be opened, permission denied!")
 
+# # check content of initial settings file and load data
 line_index = 0
-for line in initial_content:
+for line in initial_settings_file_content:
     line_index += 1
     # prepare line
     line = line.strip()
@@ -156,13 +171,13 @@ for line in initial_content:
     elif split_text[0] == MODE:
         # modification mode
         mode = str(split_text[1])
-        if mode != MODE_BINDING:
+        if mode != MODE_LIGAND_BINDING:
             exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: " \
-                 + MODE_BINDING)
+                 + MODE_LIGAND_BINDING)
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
-# catch undefined values
+# # catch undefined values
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
 if number_of_mutable_aa != len(allowed_mutations):
@@ -647,16 +662,11 @@ def check_routine():
     are valid. The commands are not executed.
     :return: A list of errors, represented as strings.
     """
-    # open specified routine file
-    routine_file = open(args.routine, 'r')
-    routines = routine_file.readlines()
-    routine_file.close()
-
     # init error list and index
     routine_errors = []
     index = 0
     # for each line in file
-    for routine in routines:
+    for routine in routine_file_content:
         error = None
         index += 1
         # strip line and separate it by spaces
@@ -782,11 +792,22 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     history_file.write(history_file_content)
     history_file.close()
 
-    # output run info TODO
-    end_time = datetime.datetime.now()
-    print("Run time: " + str(end_time - start_time))
+    # output run info TODO finish external module params integration
+    # # basic run info
+    current_time = datetime.datetime.now()
     run_info_file_content = "Run information of run " + run_string + "\n"
-    run_info_file_content += "Run time: " + str(end_time - start_time) + "\n"
+    run_info_file_content += "Run time: " + str(current_time - start_time) + "\n"
+    # # Initial Settings File - Content
+    run_info_file_content += "\n\n\nInitial Settings File - Content:\n"
+    for file_line in initial_settings_file_content:
+        run_info_file_content += file_line
+    # # Routine File - Content
+    run_info_file_content += "\n\n\nRoutine File - Content:\n"
+    for file_line in routine_file_content:
+        run_info_file_content += file_line
+    # # External Settings
+    run_info_file_content += "\n\n\nExternal Tool Settings File Contents:\n"
+
     run_info_file = open(out_path + "/EvoDock_run_information.txt", 'w')
     run_info_file.write(run_info_file_content)
     run_info_file.close()
@@ -961,6 +982,8 @@ print("Number of accepted recombination products: " + str(iterationCounts[ITERAT
 
 # ## Save final Output
 save_output(population, best_scores, average_scores)
+end_time = datetime.datetime.now()
+print("Run time: " + str(end_time - start_time))
 
 # Plot results
 if PLOT:
