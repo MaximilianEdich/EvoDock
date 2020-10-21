@@ -55,7 +55,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/EvoDock.py" />
-      <option name="PARAMETERS" value="-s &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\initial_settings.txt&quot; -r r" />
+      <option name="PARAMETERS" value="-s &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\initial_settings.txt&quot; -r &quot;C:\Users\User\PycharmProjects\EvoDockGit\EvoDock\EvoDock\routine.txt&quot; -pre &quot;Test1_&quot;" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -84,13 +84,36 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="Workshop2test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="EvoDock" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$USER_HOME$/Documents/Rosetta/PyRosetta4.Release.python38.ubuntu.release-267/test" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$USER_HOME$/Documents/Rosetta/PyRosetta4.Release.python38.ubuntu.release-267/test/Workshop2test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Python.EvoDock" />
       <item itemvalue="Python.MathTest" />
+      <item itemvalue="Python.Workshop2test" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.EvoDock" />
+        <item itemvalue="Python.Workshop2test" />
         <item itemvalue="Python.MathTest" />
       </list>
     </recent_temporary>
