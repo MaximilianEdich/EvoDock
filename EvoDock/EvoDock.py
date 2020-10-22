@@ -4,40 +4,49 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-
-import random
-import MutateDockScoreModule
-import argparse
-from pathlib import Path
-import datetime
+# handle imports
+try:
+    import random
+except ImportError as e:
+    random = None
+    exit("Error: Import of \"random\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+try:
+    import argparse
+except ImportError as e:
+    argparse = None
+    exit("Error: Import of \"argparse\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+try:
+    import datetime
+except ImportError as e:
+    datetime = None
+    exit("Error: Import of \"datetime\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+try:
+    from pathlib import Path
+except ImportError as e:
+    Path = None
+    exit("Error: Import of \"Path\" from \"pathlib\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+try:
+    import MutateDockScoreModule
+except ImportError as e:
+    MutateDockScoreModule = None
+    exit("Error: Import of \"MutateDockScoreModule\" failed. Make sure to provide this module, since it is essential. "
+         "This module is part of EvoDock, so probably something went wrong with the installation. "
+         "Make sure, that all EvoDock modules are in the same folder. Check the documentation for more information. "
+         "Error Message: " + str(e))
 
 PLOT = False
 if PLOT:
-    import matplotlib.pyplot as plt
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        plt = None
+        exit("Error: Import of \"matplotlib.pyplot\" failed. Make sure to provide this module, since it is essential.")
 
-
-"""
-Alanin	        Ala	A
-Arginin	        Arg	R
-Asparagin	    Asn	N
-Asparaginsaeure	Asp	D
-Cystein     	Cys	C
-Glutamin	    Gln	Q
-Glutaminsaeure	Glu	E
-Glycin	        Gly	G
-Histidin	    His	H
-Isoleucin	    Ile	I
-Leucin	        Leu	L
-Lysin	        Lys	K
-Methionin	    Met	M
-Phenylalanin	Phe	F
-Prolin	        Pro	P
-Serin	        Ser	S
-Threonin	    Thr	T
-Tryptophan	    Trp	W
-Tyrosin	        Tyr	Y
-Valin	        Val	V
-"""
+print("\nIMPORTS DONE!")
 
 # initial settings file values
 START_POPULATION = "startpopulation"
@@ -59,13 +68,10 @@ LOOP = "loop"
 ITERATION_COUNT_MUTATION_INDEX = 0
 ITERATION_COUNT_RECOMBINATION_INDEX = 1
 
-# global parameters
-global MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL
-MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL = 100
-global MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT
-MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 100
+# technical fixed parameters
+MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL = 500
+MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 500
 
-global PRINT_OUT
 PRINT_OUT = False
 
 # ## read out input arguments
@@ -76,12 +82,10 @@ parser.add_argument("-s", "--settings", type=str, required=True,
                          "Spaces should only be used to seperate a command and its parameter. See the documentation"
                          " for the full list of commands.")
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
-                    "for a list of all commands.")
+                                                                     "for a list of all commands.")
 parser.add_argument("-pre", "--prefix", type=str, required=False, help="Prefix of the output folder.")
 args = parser.parse_args()
-# TODO check if paths leads to existing files!
-# specify routine file
-# specify optional technical settings
+# TODO specify optional technical settings
 
 
 # ## Specification of mutable amino acids, possible mutations and target score
@@ -105,9 +109,9 @@ try:
     routine_file_content = routine_file.readlines()
     routine_file.close()
 except FileNotFoundError:
-    exit("Error: Initial settings file does not exist!")
+    exit("Error: Routine file does not exist!")
 except PermissionError:
-    exit("Error: Initial settings file can not be opened, permission denied!")
+    exit("Error: Routine file can not be opened, permission denied!")
 
 # # try to load initial settings file
 initial_settings_file_content = ""
@@ -132,8 +136,8 @@ for line in initial_settings_file_content:
         try:
             start_population_size = int(split_text[1])
         except ValueError:
-            exit("Error, " + START_POPULATION + " value in initial settings file is not a valid number, " \
-                 + "must be int: \""
+            exit("Error, " + START_POPULATION + " value in initial settings file is not a valid number, "
+                 "must be int: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
         if start_population_size < 1:
             exit("Error, illegal value in line " + str(line_index) + " of the initial settings file. Must be >= 1.")
@@ -144,7 +148,7 @@ for line in initial_settings_file_content:
         try:
             target_score = float(split_text[1])
         except ValueError:
-            exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \"" \
+            exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
 
     elif split_text[0][0:len("initial>")] == "initial>":
@@ -157,7 +161,7 @@ for line in initial_settings_file_content:
         if split_text[0][1:] == "":
             # empty, allow all mutations
             allowed_mutations.append(['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M',
-                                     'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'U', 'O'])
+                                      'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'U', 'O'])
         else:
             # not empty, allow only specified mutations
             allowed = split_text[0][1:].split(',')
@@ -172,7 +176,7 @@ for line in initial_settings_file_content:
         # modification mode
         mode = str(split_text[1])
         if mode != MODE_LIGAND_BINDING:
-            exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: " \
+            exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: "
                  + MODE_LIGAND_BINDING)
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
@@ -191,7 +195,9 @@ if not defined_target_score:
 # TODO read initial genes from pdb
 # do this via new class
 
-print(original)
+print("FILE LOADINGS DONE!\n")
+print("original individual + amino acid paths:")
+print(original[0])
 print(amino_acid_paths)
 
 # TODO load optional history as look up table for score to avoid long re-calculations
@@ -252,14 +258,19 @@ def get_random_individual(history, rec_depth):
     for individual in history:
         if individual[0] == new_individual[0]:
             # individual not new, repeat with new random individual
-            return get_random_individual(history, rec_depth + 1)
+            try:
+                return get_random_individual(history, rec_depth + 1)
+            except RecursionError as error:
+                print("Please lower the new-random-individual-recursion-limit in the technical settings!"
+                      "Error Message: " + str(error))
+                return
     # individual is new, add to history
     history.append(new_individual)
 
     return new_individual
 
 
-def generate_initial_population(number_of_initial_individuals, history, original_individual, out_path):
+def generate_initial_population(number_of_initial_individuals, history, original_individual):
     """
     Generate the initial population with random and new individuals.
     :param number_of_initial_individuals: The number ( > 0) of total individuals in the generated population.
@@ -284,10 +295,10 @@ def generate_initial_population(number_of_initial_individuals, history, original
         new_population.append(new_individual)
 
     # calculate score of initial population
-    for indiv in new_population:
-        get_and_write_score(indiv)
+    for individual in new_population:
+        get_and_write_score(individual)
         if PRINT_OUT:
-            print(indiv)
+            print(individual)
 
     return new_population
 
@@ -325,7 +336,12 @@ def get_new_random_mutant(parent, history, rec_depth, stats_data_list):
     for indiv in history:
         if indiv[0] == new_mutant[0]:
             # repeat with new random mutation
-            return get_new_random_mutant(parent, history, rec_depth + 1, stats_data_list)
+            try:
+                return get_new_random_mutant(parent, history, rec_depth + 1, stats_data_list)
+            except RecursionError as error:
+                print("Please lower the new-mutant-recursion-limit in the technical settings!"
+                      "Error Message: " + str(error))
+                return
 
     history.append(new_mutant)
     stats_data_list[ITERATION_COUNT_MUTATION_INDEX] += 1
@@ -385,7 +401,7 @@ def mutate_population(input_population, number_of_new_mutants, history, stats_da
     return new_population
 
 
-def mutate_and_keep_improvements(input_population, number_of_new_mutants, history, stats_data_list, out_path):
+def mutate_and_keep_improvements(input_population, number_of_new_mutants, history, stats_data_list):
     """
     Iterate through the whole population and create several mutants for each. Only the original individuals from
     the inputPopulation and mutants with an improved score are transferred into the returned new population.
@@ -436,7 +452,7 @@ def get_random_mating_partner(input_population, mating_partner_one):
     return mating_partner_two
 
 
-def perform_recombination_classic(input_population, repetitions, history, stats_data_list, out_path):
+def perform_recombination_classic(input_population, repetitions, history, stats_data_list):
     """
     Perform a classic cross over in terms of Genetic Algorithms with the whole population. All recombination
     are kept.
@@ -504,7 +520,7 @@ def get_random_bit_mask(length):
     return mask
 
 
-def perform_uniform_recombination(input_population, repetitions, history, stats_data_list, out_path):
+def perform_uniform_recombination(input_population, repetitions, history, stats_data_list):
     """
     Perform a uniform recombination in terms of Genetic Algorithms with the whole population. All recombination
     are kept. For each position, a coin flip chooses the parent.
@@ -759,16 +775,16 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     """
 
     best_score = input_population[0][1]
-    count = 0
+    individual_count = 0
     for individual in population:
         if individual[1] == population[0][1]:
-            count += 1
+            individual_count += 1
 
     # output results
-    results_file_content = "Population Size: " + str(len(input_population)) + "\n" \
+    results_file_content = "Final Population Size: " + str(len(input_population)) + "\n" \
                            + str("Best score: " + str(best_score) + " | with difference to target score: "
                                  + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
-    results_file_content += str("Number of mutants sharing best score: " + str(count)) + "\n"
+    results_file_content += str("Number of mutants sharing best score: " + str(individual_count)) + "\n"
     results_file_content += "Number of accepted mutations: " + str(
         iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
     results_file_content += "Number of accepted recombination products: " \
@@ -815,7 +831,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     return
 
 
-def perform_routine(input_population, history, stats_data_list, out_path):
+def perform_routine(input_population, history, stats_data_list):
     """
     Iterates through the specified routine file and executes each command in the given order.
     :param input_population: The population on which the evolution will be performed.
@@ -828,10 +844,6 @@ def perform_routine(input_population, history, stats_data_list, out_path):
     Second item: The best score over time.
     Third item: The average score over time.
     """
-    # load file content
-    routine_file = open(args.routine, 'r')
-    routines = routine_file.readlines()
-    routine_file.close()
 
     # init stat variables
     best_scores_over_time = [input_population[0][1]]
@@ -844,8 +856,8 @@ def perform_routine(input_population, history, stats_data_list, out_path):
     routine_step = 0
     loop_number = 0
     loop_jump = 0
-    while routine_step < len(routines):
-        routine = routines[routine_step]
+    while routine_step < len(routine_file_content):
+        routine = routine_file_content[routine_step]
         if True:
             print("Population Size: " + str(len(input_population)))
             print("Do " + routine.strip() + "...")
@@ -860,17 +872,17 @@ def perform_routine(input_population, history, stats_data_list, out_path):
                 # perform mutation
                 mutation_number = int(split_command[1])
                 input_population = mutate_and_keep_improvements(input_population, mutation_number, history,
-                                                                stats_data_list, out_path)
+                                                                stats_data_list)
             elif split_command[0] == RECOMBINATION:
                 # perform uniform recombination
                 repetition_number = int(split_command[1])
                 input_population = perform_uniform_recombination(input_population, repetition_number, history,
-                                                                 stats_data_list, out_path)
+                                                                 stats_data_list)
             elif split_command[0] == RECOMBINATION_CLASSIC:
                 # perform uniform recombination
                 repetition_number = int(split_command[1])
                 input_population = perform_recombination_classic(input_population, repetition_number, history,
-                                                                 stats_data_list, out_path)
+                                                                 stats_data_list)
             elif split_command[0] == SELECT:
                 # select number or of fraction of mutants
                 selection_param1 = float(split_command[1])
@@ -900,7 +912,7 @@ def perform_routine(input_population, history, stats_data_list, out_path):
                 loop_number -= 1
                 routine_step = loop_jump - 1
         routine_step += 1
-        if routine_step >= len(routines):
+        if routine_step >= len(routine_file_content):
             if loop_number > 0:
                 loop_number -= 1
                 routine_step = loop_jump
@@ -960,10 +972,10 @@ mds.set_values(original, out_path, protein_name, amino_acid_paths)
 
 # generate random population
 print("Generate initial Population...")
-population = generate_initial_population(start_population_size, total_history, original, out_path)
+population = generate_initial_population(start_population_size, total_history, original)
 
 # perform the whole evolution routine
-routine_results = perform_routine(population, total_history, iterationCounts, out_path)
+routine_results = perform_routine(population, total_history, iterationCounts)
 population = routine_results[0]
 best_scores = routine_results[1]
 average_scores = routine_results[2]

@@ -1,6 +1,9 @@
 
-from pyrosetta import toolbox
-from pyrosetta import init
+try:
+    from pyrosetta import toolbox
+    from pyrosetta import init
+except ImportError as e:
+    exit("ImportError in the module \"pyrosetta\": " + str(e))
 
 init()
 

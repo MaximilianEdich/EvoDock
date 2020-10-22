@@ -7,9 +7,29 @@ protein. Next the protein will be used in docking and get a score.
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-import MutateByPyRosetta as mutate_mod
-import DockTemplate as dock_mod
-import ScoreTemplate as score_mod
+try:
+    import MutateByPyRosetta as mutate_mod
+except ImportError as e:
+    mutate_mod = None
+    exit("Error: Import of \"MutateByPyRosetta\" failed. Make sure to provide this module, since it is essential. "
+         "This was the import of your specified MutationModule. Make sure it is in the correct Folder. "
+         "Check the documentation for more information. ")
+try:
+    import DockTemplate as dock_mod
+except ImportError as e:
+    dock_mod = None
+    exit("Error: Import of \"\" failed. Make sure to provide this module, since it is essential. "
+         "This was the import of your specified DockModule. Make sure it is in the correct Folder. "
+         "Check the documentation for more information. "
+         "Error Message: " + str(e))
+try:
+    import ScoreTemplate as score_mod
+except ImportError as e:
+    score_mod = None
+    exit("Error: Import of \"\" failed. Make sure to provide this module, since it is essential. "
+         "This was the import of your specified ScoreModule. Make sure it is in the correct Folder. "
+         "Check the documentation for more information. "
+         "Error Message: " + str(e))
 
 
 class MutateDockScore():
