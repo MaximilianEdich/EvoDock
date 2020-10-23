@@ -1,4 +1,4 @@
-startpopulation 100
+startpopulation 50
 mode LIGAND-BINDING
 targetscore 100
 prot 1rgs
@@ -9,3 +9,4 @@ initial>V,R,Y
 >
 >
 >
+cpu 8

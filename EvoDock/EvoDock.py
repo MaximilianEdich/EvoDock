@@ -30,6 +30,13 @@ except ImportError as e:
     exit("Error: Import of \"Path\" from \"pathlib\" failed. Make sure to provide this module, since it is essential. "
          "Error Message: " + str(e))
 try:
+    import multiprocessing as multi_p
+except ImportError as e:
+    multi_p = None
+    exit("Error: Import of \"multiprocessing\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+
+try:
     import MutateDockScoreModule
 except ImportError as e:
     MutateDockScoreModule = None
@@ -47,6 +54,8 @@ if PLOT:
         exit("Error: Import of \"matplotlib.pyplot\" failed. Make sure to provide this module, since it is essential.")
 
 print("\nIMPORTS DONE!")
+# start run time counter
+start_time = datetime.datetime.now()
 
 # initial settings file values
 START_POPULATION = "startpopulation"
@@ -55,12 +64,13 @@ MODE = "mode"
 MODE_LIGAND_BINDING = "LIGAND-BINDING"
 MODE_PROTEIN_BINDING = "PROTEIN-BINDING"
 MODE_THERMO_STABILITY = "THERMO-STABILITY"
+CPU_CORE_NUMBER = "cpu"
 
 # strings for commands
 MUTATE = "mutate"
 MUTATE_PLUS = "mutate+"
 RECOMBINATION = "recombine"
-RECOMBINATION_CLASSIC = "recombine_classic"
+RECOMBINATION_CLASSIC = "recombine-classic"
 SELECT = "select"
 LOOP = "loop"
 
@@ -69,8 +79,9 @@ ITERATION_COUNT_MUTATION_INDEX = 0
 ITERATION_COUNT_RECOMBINATION_INDEX = 1
 
 # technical fixed parameters
-MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL = 500
-MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 500
+MAX_REC_DEPTH_GET_RANDOM_INDIVIDUAL = 200
+MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 200
+BREAK_LOOP_AFTER_MAX_REC_DEPTH = True
 
 PRINT_OUT = False
 
@@ -79,7 +90,7 @@ parser = argparse.ArgumentParser(description="EvoDock - An Evolutionary Algorith
 parser.add_argument("-s", "--settings", type=str, required=True,
                     help="Path to the initial settings file.\nThe initial settings file must be a text file"
                          " containing only one single command per line.\nThe order of the commands is not important. "
-                         "Spaces should only be used to seperate a command and its parameter. See the documentation"
+                         "Spaces should only be used to separate a command and its parameter. See the documentation"
                          " for the full list of commands.")
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
                                                                      "for a list of all commands.")
@@ -100,6 +111,7 @@ amino_acid_paths = []
 number_of_mutable_aa = 0
 allowed_mutations = []
 defined_target_score = False
+usable_cpu = multi_p.cpu_count()
 
 # load files
 # # try to load routine settings file
@@ -126,6 +138,7 @@ except PermissionError:
 
 # # check content of initial settings file and load data
 line_index = 0
+# TODO check exceptions
 for line in initial_settings_file_content:
     line_index += 1
     # prepare line
@@ -137,7 +150,7 @@ for line in initial_settings_file_content:
             start_population_size = int(split_text[1])
         except ValueError:
             exit("Error, " + START_POPULATION + " value in initial settings file is not a valid number, "
-                 "must be int: \""
+                                                "must be int: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
         if start_population_size < 1:
             exit("Error, illegal value in line " + str(line_index) + " of the initial settings file. Must be >= 1.")
@@ -169,6 +182,7 @@ for line in initial_settings_file_content:
     elif split_text[0] == "aa":
         # amino acid path
         amino_acid_paths.append(str(split_text[1]))
+    # TODO replace prot name with variable
     elif split_text[0] == "prot":
         # protein pdb code
         protein_name = str(split_text[1])
@@ -178,10 +192,20 @@ for line in initial_settings_file_content:
         if mode != MODE_LIGAND_BINDING:
             exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: "
                  + MODE_LIGAND_BINDING)
+    elif split_text[0] == CPU_CORE_NUMBER:
+        # number of usable cpu cores
+        try:
+            usable_cpu = int(split_text[1])
+            if usable_cpu < 1:
+                usable_cpu = 1
+        except IndexError as e:
+            exit("Error in line " + str(line_index) + ": Missing argument, the number of usable CPU cores.")
+        except ValueError as e:
+            exit("Error in line " + str(line_index) + ": Argument must be a positive integer!")
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
-# # catch undefined values
+# # catch undefined essetnial values
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
 if number_of_mutable_aa != len(allowed_mutations):
@@ -200,6 +224,11 @@ print("original individual + amino acid paths:")
 print(original[0])
 print(amino_acid_paths)
 
+# initialize multiprocessing pool
+print("\nNumber of cores, detected for multi-processing: " + str(multi_p.cpu_count()))
+print("Use of multi-processing is restricted to: " + str(usable_cpu) + "\n")
+
+
 # TODO load optional history as look up table for score to avoid long re-calculations
 look_up_scores = []
 
@@ -211,13 +240,39 @@ def get_and_write_score(target_individual):
     :param target_individual: An individual in the form of [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid.
-    :return: The calculated score as the individuals fitness, that was written into the score value of the individual.
+    :return: The individual with its new calculated score as the individuals fitness.
     """
     # calculate the score (by using external software)
     score = MutateDockScoreModule.get_score(target_individual, mds)
     # write the score into the individual and return score
     target_individual[1] = score
-    return score
+
+    return target_individual
+
+
+def score_on_multi_core(score_population):
+    """
+    Takes a new gathered population and scores each individual via multi processing, if enabled.
+    :param score_population: New population with individuals without score.
+    :return: The input population but with scored individuals.
+    """
+    if usable_cpu > 1:
+        # calculate score of initial population in parallel processes
+        # create pool of processes and map tasks
+        pool = multi_p.Pool(usable_cpu)
+        result = pool.map(get_and_write_score, score_population)
+        # close processes and wait for end
+        pool.close()
+        pool.join()
+        update_history_scores(result)
+
+        return result
+    else:
+        # calculate score in single run
+        for individual in score_population:
+            get_and_write_score(individual)
+
+        return score_population
 
 
 # ## Create Population - Functions
@@ -226,7 +281,6 @@ def get_random_genes():
     Get a random combination of possible genes (in terms of genetic algorithms).
     :return: A list, containing random amino acids chosen by the specified pattern.
     """
-
     genes = []
     for aa in range(number_of_mutable_aa):
         # for each amino acid, add a random amino acid from specified lists
@@ -235,15 +289,12 @@ def get_random_genes():
     return genes
 
 
-def get_random_individual(history, rec_depth):
+def get_random_individual(rec_depth=0):
     """
-    Generate a new individual with random gene combination.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history within
-    this function.
+    Generate a new individual with random gene combination and a score of 0.
     :param rec_depth: The recursion depth. If a generated individual is not new, the
     functions is recalled with increased recDepth as long as recDepth is smaller
-    than the maximal recursion depth.
+    than the maximal recursion depth. Use the default value of 0.
     :return: A new and random individual in the form [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid. If the maximal recursion depth is reached, before a new individual was found,
@@ -253,69 +304,75 @@ def get_random_individual(history, rec_depth):
         # return None, if maximum recursion depth is reached
         return
 
-    new_individual = [get_random_genes(), 0]
+    new_individual = [get_random_genes(), '']
     # check if the new individual appears in history
-    for individual in history:
+    for individual in total_history:
         if individual[0] == new_individual[0]:
             # individual not new, repeat with new random individual
             try:
-                return get_random_individual(history, rec_depth + 1)
+                return get_random_individual(rec_depth + 1)
             except RecursionError as error:
                 print("Please lower the new-random-individual-recursion-limit in the technical settings!"
                       "Error Message: " + str(error))
+                # return None, if maximum recursion depth is reached
                 return
+
     # individual is new, add to history
-    history.append(new_individual)
+    total_history.append(new_individual)
 
     return new_individual
 
 
-def generate_initial_population(number_of_initial_individuals, history, original_individual):
+def update_history_scores(input_population):
+    """
+    Updates the scores of the history. Necessary, if multiprocessing was used. Otherwise the data updates automatically
+    in the correct object. Call this right after scoring and joining multi processes.
+    :param input_population: Actual population right after a scoring process.
+    :return: None.
+    """
+    # check all individuals from population, since these are new
+    for individual in input_population:
+        for entry in total_history:
+            if entry[0] == individual[0]:
+                entry[1] = individual[1]
+    return
+
+
+def generate_initial_population(number_of_initial_individuals, original_individual):
     """
     Generate the initial population with random and new individuals.
     :param number_of_initial_individuals: The number ( > 0) of total individuals in the generated population.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history during the process of this
-    function.
     :param original_individual: An individual with the initial amino acids of interest. The original
     individual is added as first one to the new population.
     :return: A new population. A population is a list of individuals.
     """
-    # initialize population
+    # initialize population with original individual
     new_population = [original_individual]
-    history.append(original_individual)
-    if PRINT_OUT:
-        print("Create initial Population of size " + str(number_of_initial_individuals) + " ...")
+    total_history.append(original_individual)
+
+    # generate new individuals with genes only, without scoring yet
     for n in range(number_of_initial_individuals - 1):
         # generate new individual
-        new_individual = get_random_individual(history, 0)
-        if new_individual is None:
+        new_individual = get_random_individual()
+        if new_individual is not None:
+            # add to population, if new individual is available
+            new_population.append(new_individual)
+        elif BREAK_LOOP_AFTER_MAX_REC_DEPTH:
             break
-        # add to population, if new individual is available
-        new_population.append(new_individual)
 
-    # calculate score of initial population
-    for individual in new_population:
-        get_and_write_score(individual)
-        if PRINT_OUT:
-            print(individual)
-
-    return new_population
+    # calculate scores and return result
+    return score_on_multi_core(new_population)
 
 
 # ## Mutation and Recombination Functions
-def get_new_random_mutant(parent, history, rec_depth, stats_data_list):
+def get_new_random_mutant(parent, rec_depth=0):
     """
     Creates a copy of the given individual (parent) and chooses by random choice a mutable position.
     For this position a random character of the allowed characters on this position is chosen.
     :param parent: The parents gene combination is copied, before a mutation is applied.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history within
-    this function.
     :param rec_depth: The recursion depth. If a generated individual is not new, the
     functions is recalled with increased recDepth as long as recDepth is smaller
     than the maximal recursion depth.
-    :param stats_data_list: Used to gather data for several stats.
     :return: An individual, if the generated individual is new.
     Otherwise a new recursion is performed, until the max recursion depth is reached, then None is
     returned. The returned mutant follows the format [g, s], where s is the score
@@ -327,62 +384,55 @@ def get_new_random_mutant(parent, history, rec_depth, stats_data_list):
         return
 
     # create copy of individual
-    new_mutant = [parent[0].copy(), 0]
+    new_mutant = [parent[0].copy(), '']
     # choose random position and mutate it until it is not equal to its parent
     while new_mutant[0] == parent[0]:
         r = random.choice(range(number_of_mutable_aa))
         new_mutant[0][r] = random.choice(allowed_mutations[r])
     # check the history
-    for indiv in history:
-        if indiv[0] == new_mutant[0]:
+    for individual in total_history:
+        if individual[0] == new_mutant[0]:
             # repeat with new random mutation
             try:
-                return get_new_random_mutant(parent, history, rec_depth + 1, stats_data_list)
+                return get_new_random_mutant(parent, rec_depth + 1)
             except RecursionError as error:
                 print("Please lower the new-mutant-recursion-limit in the technical settings!"
                       "Error Message: " + str(error))
                 return
 
-    history.append(new_mutant)
-    stats_data_list[ITERATION_COUNT_MUTATION_INDEX] += 1
+    total_history.append(new_mutant)
+    iterationCounts[ITERATION_COUNT_MUTATION_INDEX] += 1
     return new_mutant
 
 
-def get_random_mutants(parent, number_of_new_mutants, history, stats_data_list):
+def get_random_mutants(parent, number_of_new_mutants):
     """
     Get from a given parent individual several new mutants.
     :param parent: The parents gene combination is copied, before mutations are applied.
     :param number_of_new_mutants: The maximum number of new mutants generated by this function.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history during the process of this
-    function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A list of new individuals. Since the mutation function can fail, this list can be
     empty. If all mutations were successful, the list contains 'numberOfNewMutants' items.
     """
     mutants = []
     # generate several mutants
-    for mutant in range(number_of_new_mutants):
+    for m in range(number_of_new_mutants):
         # generate new individual, if available. Start at recursion depth 0.
-        new_mutant = get_new_random_mutant(parent, history, 0, stats_data_list)
-        if new_mutant is None:
+        new_mutant = get_new_random_mutant(parent)
+        if new_mutant is not None:
+            # only keep new individuals
+            mutants.append(new_mutant)
+        elif BREAK_LOOP_AFTER_MAX_REC_DEPTH:
             break
-        # only keep new individuals
-        mutants.append(new_mutant)
 
     return mutants
 
 
-def mutate_population(input_population, number_of_new_mutants, history, stats_data_list):
+def mutate_population(input_population, number_of_new_mutants):
     """
     Iterate through the whole population and create several mutants for each. All the original individuals from
     the inputPopulation and all new are transferred into the returned new population.
     :param input_population: The population from which each individual is passed trough the mutation process.
     :param number_of_new_mutants: The maximum number of new mutants generated by this function.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history during the process of this
-    function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A new population containing the whole inputPopulation and all new mutants.
     """
     if PRINT_OUT:
@@ -393,42 +443,61 @@ def mutate_population(input_population, number_of_new_mutants, history, stats_da
         # keep the individual in population
         new_population.append(parent)
         # generate new mutants
-        mutants = get_random_mutants(parent, number_of_new_mutants, history, stats_data_list)
+        mutants = get_random_mutants(parent, number_of_new_mutants)
         # add new mutants to population
         for mutant in mutants:
             new_population.append(mutant)
 
-    return new_population
+    # calculate scores of new individuals
+    return score_on_multi_core(new_population)
 
 
-def mutate_and_keep_improvements(input_population, number_of_new_mutants, history, stats_data_list):
+def mutate_and_keep_improvements(input_population, number_of_new_mutants):
     """
     Iterate through the whole population and create several mutants for each. Only the original individuals from
     the inputPopulation and mutants with an improved score are transferred into the returned new population.
     :param input_population: The population from which each individual is passed trough the mutation process.
     :param number_of_new_mutants: The maximum number of new mutants generated by this function.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history during the process of this
-    function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A new population containing the whole inputPopulation and improved mutants.
     """
     if PRINT_OUT:
         print("\ncreate Mutants from individuals and only keep improvements")
     new_population = []
+    offsprings = []
+    offspring_population = []
     # for each individual in population
     for parent in input_population:
         # keep the individual in population
         new_population.append(parent)
         # generate new mutants
-        mutants = get_random_mutants(parent, number_of_new_mutants, history, stats_data_list)
-        # check, if mutants are better than parent
+        mutants = get_random_mutants(parent, number_of_new_mutants)
+        offsprings.append(mutants)
         for mutant in mutants:
-            get_and_write_score(mutant)
-            if get_individuals_score_relative_to_targetScore(mutant) < \
+            offspring_population.append(mutant)
+
+    # score offsprings
+    if usable_cpu > 1:
+        # calculate score in parallel processes
+        # create pool of processes and map tasks
+        pool = multi_p.Pool(usable_cpu)
+        offspring_population = pool.map(get_and_write_score, offspring_population)
+        # close processes and wait for end
+        pool.close()
+        pool.join()
+        update_history_scores(offspring_population)
+    else:
+        # calculate score in single run
+        for individual in offspring_population:
+            get_and_write_score(individual)
+    # compare offsprings to parent and only keep improvements
+    index = 0
+    for parent in input_population:
+        for offspring in offsprings[index]:
+            if get_individuals_score_relative_to_targetScore(offspring) < \
                     get_individuals_score_relative_to_targetScore(parent):
                 # if the mutant is an improvement, keep it in new population
-                new_population.append(mutant)
+                new_population.append(offspring)
+        index += 1
 
     return new_population
 
@@ -452,16 +521,12 @@ def get_random_mating_partner(input_population, mating_partner_one):
     return mating_partner_two
 
 
-def perform_recombination_classic(input_population, repetitions, history, stats_data_list):
+def perform_recombination_classic(input_population, repetitions):
     """
     Perform a classic cross over in terms of Genetic Algorithms with the whole population. All recombination
     are kept.
     :param input_population: The population from which each individual is passed trough the recombination process.
     :param repetitions: Number, how many mating partners are chosen for each individual in the population.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history within
-    this function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A new population containing the whole inputPopulation and all new individuals from recombination, if it
     did not appear in the history.
     """
@@ -481,20 +546,20 @@ def perform_recombination_classic(input_population, repetitions, history, stats_
             new_genes.extend(mating_partner_two[0][cross_point:].copy())
             # check history
             is_new = True
-            for history_entry in history:
+            for history_entry in total_history:
                 if history_entry[0] == new_genes:
                     is_new = False
                     break
             # if new, create individual and calculate score
             if is_new:
-                new_individual = [new_genes, 0]
-                get_and_write_score(new_individual)
+                new_individual = [new_genes, '']
                 # add to history and population
-                history.append(new_individual)
-                stats_data_list[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
+                total_history.append(new_individual)
+                iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
                 new_population.append(new_individual)
 
-    return new_population
+    # calculate scores of new individuals
+    return score_on_multi_core(new_population)
 
 
 def get_random_bit_mask(length):
@@ -520,16 +585,12 @@ def get_random_bit_mask(length):
     return mask
 
 
-def perform_uniform_recombination(input_population, repetitions, history, stats_data_list):
+def perform_uniform_recombination(input_population, repetitions):
     """
     Perform a uniform recombination in terms of Genetic Algorithms with the whole population. All recombination
     are kept. For each position, a coin flip chooses the parent.
     :param input_population: The population from which each individual is passed trough the recombination process.
     :param repetitions: Number, how many mating partners are chosen for each individual in the population.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history within
-    this function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A new population containing the whole inputPopulation and all new individuals from recombination, if it
     did not appear in the history.
     """
@@ -553,23 +614,23 @@ def perform_uniform_recombination(input_population, repetitions, history, stats_
                 print(mating_partner_two[0])
                 print(mask)
                 print(new_genes)
-                print("\n")
+                print("")
             # check history
             is_new = True
-            for history_entry in history:
+            for history_entry in total_history:
                 if history_entry[0] == new_genes:
                     is_new = False
                     break
             # if new, create individual and calculate score
             if is_new:
-                new_individual = [new_genes, 0]
-                get_and_write_score(new_individual)
+                new_individual = [new_genes, '']
                 # add to history and population
-                history.append(new_individual)
-                stats_data_list[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
+                total_history.append(new_individual)
+                iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX] += 1
                 new_population.append(new_individual)
 
-    return new_population
+    # calculate scores of new individuals
+    return score_on_multi_core(new_population)
 
 
 # ## Selection Functions
@@ -664,7 +725,6 @@ def select_fittest_by_fraction(fraction_percent, random_picks_percent, input_pop
     # calculate number of individuals being selected
     keep_int = round(fraction_percent * len(input_population))
     random_picks = int(random_picks_percent * keep_int)
-    print(str(keep_int) + " - " + str(random_picks))
     if keep_int < 1:
         keep_int = 1
 
@@ -831,14 +891,10 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     return
 
 
-def perform_routine(input_population, history, stats_data_list):
+def perform_routine(input_population):
     """
     Iterates through the specified routine file and executes each command in the given order.
     :param input_population: The population on which the evolution will be performed.
-    :param history: A list containing all previous individuals. It is necessary to determine if
-    a generated individual is new. The new individual will be added to the history during the process of this
-    function.
-    :param stats_data_list: Used to gather data for several stats.
     :return: A list with the final population after the execution of the whole routine, and some statistical values.
     First item: The final population.
     Second item: The best score over time.
@@ -867,22 +923,19 @@ def perform_routine(input_population, history, stats_data_list):
             if split_command[0] == MUTATE:
                 # perform mutation
                 mutation_number = int(split_command[1])
-                input_population = mutate_population(input_population, mutation_number, history, stats_data_list)
+                input_population = mutate_population(input_population, mutation_number)
             elif split_command[0] == MUTATE_PLUS:
                 # perform mutation
                 mutation_number = int(split_command[1])
-                input_population = mutate_and_keep_improvements(input_population, mutation_number, history,
-                                                                stats_data_list)
+                input_population = mutate_and_keep_improvements(input_population, mutation_number)
             elif split_command[0] == RECOMBINATION:
                 # perform uniform recombination
                 repetition_number = int(split_command[1])
-                input_population = perform_uniform_recombination(input_population, repetition_number, history,
-                                                                 stats_data_list)
+                input_population = perform_uniform_recombination(input_population, repetition_number)
             elif split_command[0] == RECOMBINATION_CLASSIC:
                 # perform uniform recombination
                 repetition_number = int(split_command[1])
-                input_population = perform_recombination_classic(input_population, repetition_number, history,
-                                                                 stats_data_list)
+                input_population = perform_recombination_classic(input_population, repetition_number)
             elif split_command[0] == SELECT:
                 # select number or of fraction of mutants
                 selection_param1 = float(split_command[1])
@@ -904,12 +957,13 @@ def perform_routine(input_population, history, stats_data_list):
                 average_scores_over_time.append(ger_average_score(input_population))
                 save_output(input_population, best_scores_over_time, average_scores_over_time)
             elif split_command[0] == LOOP:
-                # set repeat
+                # set repeat number and point
                 loop_number = int(split_command[1]) - 1
                 loop_jump = routine_step + 1
         elif routine == "\n":
             if loop_number > 0:
                 loop_number -= 1
+                # lower by one, because it increases after this line
                 routine_step = loop_jump - 1
         routine_step += 1
         if routine_step >= len(routine_file_content):
@@ -931,7 +985,6 @@ if len(errors) > 0:
 
 # create output folder
 # get start time of current run in string format
-start_time = datetime.datetime.now()
 month = str(start_time.month)
 if len(month) == 1:
     month = "0" + month
@@ -972,10 +1025,10 @@ mds.set_values(original, out_path, protein_name, amino_acid_paths)
 
 # generate random population
 print("Generate initial Population...")
-population = generate_initial_population(start_population_size, total_history, original)
+population = generate_initial_population(start_population_size, original)
 
 # perform the whole evolution routine
-routine_results = perform_routine(population, total_history, iterationCounts)
+routine_results = perform_routine(population)
 population = routine_results[0]
 best_scores = routine_results[1]
 average_scores = routine_results[2]
