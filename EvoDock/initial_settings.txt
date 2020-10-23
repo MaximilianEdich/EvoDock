@@ -1,4 +1,5 @@
-startpopulation 50
+init-pop create_and_evolve 50
+init-pop-create-mode mutate
 mode LIGAND-BINDING
 targetscore 100
 prot 1rgs
@@ -10,3 +11,4 @@ initial>V,R,Y
 >
 >
 cpu 8
+seed 12345

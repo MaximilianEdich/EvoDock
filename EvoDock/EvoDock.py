@@ -4,7 +4,7 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-# handle imports
+# region Imports
 try:
     import random
 except ImportError as e:
@@ -54,17 +54,31 @@ if PLOT:
         exit("Error: Import of \"matplotlib.pyplot\" failed. Make sure to provide this module, since it is essential.")
 
 print("\nIMPORTS DONE!")
+# endregion
+
 # start run time counter
 start_time = datetime.datetime.now()
 
+# region String Vars and Indecies
 # initial settings file values
-START_POPULATION = "startpopulation"
 TARGET_SCORE = "targetscore"
 MODE = "mode"
 MODE_LIGAND_BINDING = "LIGAND-BINDING"
 MODE_PROTEIN_BINDING = "PROTEIN-BINDING"
 MODE_THERMO_STABILITY = "THERMO-STABILITY"
 CPU_CORE_NUMBER = "cpu"
+SEED = "seed"
+INITIAL_POPULATION = "init-pop"
+# init-pop create_and_quit <pop-size>
+INITIAL_POPULATION_NEW_STOP = "create_and_quit"
+# init-pop load_and_evolve <path-to-population>
+INITIAL_POPULATION_LOAD = "load_and_evolve"
+# init-pop create_and_evolve <pop-size>
+INITIAL_POPULATION_NEW_FULL_RUN = "create_and_evolve"
+# init-pop-create-mode fold/mutate
+INITIAL_POPULATION_CREATE_MODE = "init-pop-create-mode"
+CREATE_VIA_FOLD = "fold"
+CREATE_VIA_MUTATE = "mutate"
 
 # strings for commands
 MUTATE = "mutate"
@@ -84,8 +98,9 @@ MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 200
 BREAK_LOOP_AFTER_MAX_REC_DEPTH = True
 
 PRINT_OUT = False
+# endregion
 
-# ## read out input arguments
+# region ArgParse
 parser = argparse.ArgumentParser(description="EvoDock - An Evolutionary Algorithm for Protein Optimization")
 parser.add_argument("-s", "--settings", type=str, required=True,
                     help="Path to the initial settings file.\nThe initial settings file must be a text file"
@@ -97,12 +112,15 @@ parser.add_argument("-r", "--routine", type=str, required=True, help="Path to th
 parser.add_argument("-pre", "--prefix", type=str, required=False, help="Prefix of the output folder.")
 args = parser.parse_args()
 # TODO specify optional technical settings
+# endregion
 
-
-# ## Specification of mutable amino acids, possible mutations and target score
-# TODO: check if number inputs are real numbers
+# region Specification of initial essential and optional values
 mds = MutateDockScoreModule.MutateDockScore()
+initial_population_run_mode = ""
+initial_population_create_mode = ""
 start_population_size = 0
+load_population_path = ""
+
 target_score = 0
 original = [[], 0]
 protein_name = ""
@@ -112,8 +130,9 @@ number_of_mutable_aa = 0
 allowed_mutations = []
 defined_target_score = False
 usable_cpu = multi_p.cpu_count()
+# endregion
 
-# load files
+# region load files
 # # try to load routine settings file
 routine_file_content = ""
 try:
@@ -136,7 +155,36 @@ except FileNotFoundError:
 except PermissionError:
     exit("Error: Initial settings file can not be opened, permission denied!")
 
-# # check content of initial settings file and load data
+
+# endregion
+
+# region Error Message prints and exits
+def error_msg_initial_population_options():
+    """
+    Prints out the error message for missing or wrong arguments for the initial population setting.
+    Then it exits.
+    """
+    print(INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_STOP + " <initial-population-size>")
+    print(INITIAL_POPULATION + " " + INITIAL_POPULATION_LOAD + " <path-to-population>")
+    print(INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_FULL_RUN + " <initial-population-size>")
+    exit()
+
+
+def error_msg_create_init_pop_options():
+    """
+    Prints out the error message for missing or wrong arguments for the create mode of initial population setting.
+    Then it exits.
+    """
+    print(CREATE_VIA_MUTATE + ":  Each pdb of a random mutant of the initial population is created via mutagenesis.")
+    print(CREATE_VIA_FOLD + ":   Each pdb of a random mutant of the initial population is created via ab initio "
+                            "folding.")
+    print("See the documentation for more details.")
+    exit()
+
+
+# endregion
+
+# region check initial settings file content
 line_index = 0
 # TODO check exceptions
 for line in initial_settings_file_content:
@@ -144,16 +192,47 @@ for line in initial_settings_file_content:
     # prepare line
     line = line.strip()
     split_text = line.split(' ')
-    if split_text[0] == START_POPULATION:
-        # set value of initial population size, only int > 0
+    if split_text[0] == INITIAL_POPULATION:
+        # handle initial population settings
+        if len(split_text) < 3:
+            print("Error, " + INITIAL_POPULATION + " in initial settings file in line " + str(line_index) +
+                  "requires two arguments!")
+            print("These are the 3 possible commands:")
+            error_msg_initial_population_options()
+        else:
+            if (split_text[1] == INITIAL_POPULATION_NEW_STOP or split_text[1] == INITIAL_POPULATION_LOAD
+                    or split_text[1] == INITIAL_POPULATION_NEW_FULL_RUN):
+                initial_population_run_mode = split_text[1]
+            else:
+                print("Error in line " + str(line_index) + ": Unknown mode, choose one of these options:")
+                error_msg_initial_population_options()
+            # set arguments and check if they are correct
+            if (initial_population_run_mode == INITIAL_POPULATION_NEW_STOP
+                    or initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN):
+                try:
+                    start_population_size = int(split_text[2])
+                except ValueError:
+                    exit("Error, <initial-population-size> value in initial settings file is not a valid number, "
+                         "must be int: \""
+                         + split_text[2] + "\" in line " + str(line_index) + " of the initial settings file.")
+                if start_population_size < 1:
+                    exit("Error, illegal value in line " + str(
+                        line_index) + " of the initial settings file. Must be >= 1.")
+            elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
+                load_population_path = str(split_text[2])
+
+    elif split_text[0] == INITIAL_POPULATION_CREATE_MODE:
+        # specify how the initial population is created, via mutation or via folding
         try:
-            start_population_size = int(split_text[1])
-        except ValueError:
-            exit("Error, " + START_POPULATION + " value in initial settings file is not a valid number, "
-                                                "must be int: \""
-                 + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
-        if start_population_size < 1:
-            exit("Error, illegal value in line " + str(line_index) + " of the initial settings file. Must be >= 1.")
+            initial_population_create_mode = split_text[1]
+        except IndexError:
+            print("Error in line " + str(line_index) + ": Missing mode, choose one of these options:")
+            error_msg_create_init_pop_options()
+        if not (initial_population_create_mode == CREATE_VIA_FOLD
+                or initial_population_create_mode == CREATE_VIA_MUTATE):
+            # no specified mode
+            print("Error in line " + str(line_index) + ": Unknown mode, choose one of these options:")
+            error_msg_create_init_pop_options()
 
     elif split_text[0] == TARGET_SCORE:
         defined_target_score = True
@@ -202,38 +281,49 @@ for line in initial_settings_file_content:
             exit("Error in line " + str(line_index) + ": Missing argument, the number of usable CPU cores.")
         except ValueError as e:
             exit("Error in line " + str(line_index) + ": Argument must be a positive integer!")
+    elif split_text[0] == SEED:
+        # set seed for random number generator
+        try:
+            random.seed(split_text[1])
+        except IndexError as e:
+            exit("Error in line " + str(line_index) + ": Missing argument, the seed.")
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
-# # catch undefined essetnial values
+# # catch undefined essential values
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
 if number_of_mutable_aa != len(allowed_mutations):
     exit("Error in initial settings file: Number of substitutions per position does not match with the number"
          "of mutable amino acids in the original protein!")
-if start_population_size == 0:
-    exit("Error in initial settings file: You have to specify the \"" + START_POPULATION + " n\" with n > 0!")
+if initial_population_run_mode == "":
+    print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION + "\"! Use these options:")
+    error_msg_initial_population_options()
+if initial_population_create_mode == "" and initial_population_run_mode != INITIAL_POPULATION_LOAD:
+    print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION_CREATE_MODE +
+          "\" Use: " + INITIAL_POPULATION_CREATE_MODE + " <mode>, where <mode> is one of these:")
+    error_msg_create_init_pop_options()
 if not defined_target_score:
     exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
+
+# endregion
 
 # TODO read initial genes from pdb
 # do this via new class
 
 print("FILE LOADINGS DONE!\n")
+# print loaded info summary
 print("original individual + amino acid paths:")
 print(original[0])
 print(amino_acid_paths)
-
-# initialize multiprocessing pool
 print("\nNumber of cores, detected for multi-processing: " + str(multi_p.cpu_count()))
 print("Use of multi-processing is restricted to: " + str(usable_cpu) + "\n")
-
 
 # TODO load optional history as look up table for score to avoid long re-calculations
 look_up_scores = []
 
 
-# ## Score Function
+# region Score Functions
 def get_and_write_score(target_individual):
     """
     Calculates the score of an individual and writes it into its score value.
@@ -248,6 +338,21 @@ def get_and_write_score(target_individual):
     target_individual[1] = score
 
     return target_individual
+
+
+def update_history_scores(input_population):
+    """
+    Updates the scores of the history. Necessary, if multiprocessing was used. Otherwise the data updates automatically
+    in the correct object. Call this right after scoring and joining multi processes.
+    :param input_population: Actual population right after a scoring process.
+    :return: None.
+    """
+    # check all individuals from population, since these are new
+    for individual in input_population:
+        for entry in total_history:
+            if entry[0] == individual[0]:
+                entry[1] = individual[1]
+    return
 
 
 def score_on_multi_core(score_population):
@@ -275,7 +380,9 @@ def score_on_multi_core(score_population):
         return score_population
 
 
-# ## Create Population - Functions
+# endregion
+
+# region Create Population - Functions
 def get_random_genes():
     """
     Get a random combination of possible genes (in terms of genetic algorithms).
@@ -323,21 +430,6 @@ def get_random_individual(rec_depth=0):
     return new_individual
 
 
-def update_history_scores(input_population):
-    """
-    Updates the scores of the history. Necessary, if multiprocessing was used. Otherwise the data updates automatically
-    in the correct object. Call this right after scoring and joining multi processes.
-    :param input_population: Actual population right after a scoring process.
-    :return: None.
-    """
-    # check all individuals from population, since these are new
-    for individual in input_population:
-        for entry in total_history:
-            if entry[0] == individual[0]:
-                entry[1] = individual[1]
-    return
-
-
 def generate_initial_population(number_of_initial_individuals, original_individual):
     """
     Generate the initial population with random and new individuals.
@@ -364,7 +456,9 @@ def generate_initial_population(number_of_initial_individuals, original_individu
     return score_on_multi_core(new_population)
 
 
-# ## Mutation and Recombination Functions
+# endregion
+
+# region Mutation Functions
 def get_new_random_mutant(parent, rec_depth=0):
     """
     Creates a copy of the given individual (parent) and chooses by random choice a mutable position.
@@ -502,6 +596,9 @@ def mutate_and_keep_improvements(input_population, number_of_new_mutants):
     return new_population
 
 
+# endregion
+
+# region Recombination Functions
 def get_random_mating_partner(input_population, mating_partner_one):
     """
     Get a random mating partner for recombination operations.
@@ -633,7 +730,9 @@ def perform_uniform_recombination(input_population, repetitions):
     return score_on_multi_core(new_population)
 
 
-# ## Selection Functions
+# endregion
+
+# region Selection Functions
 def get_individuals_score_relative_to_targetScore(input_individual):
     """
     Get the score value of an individual relative to the target score.
@@ -652,8 +751,8 @@ def ger_average_score(input_population):
     :return: A float number, representing the average score without consideration of the target score.
     """
     score = 0
-    for indiv in input_population:
-        score += indiv[1]
+    for individual in input_population:
+        score += individual[1]
 
     return score / len(input_population)
 
@@ -731,7 +830,75 @@ def select_fittest_by_fraction(fraction_percent, random_picks_percent, input_pop
     return select_fittest_by_number(keep_int, random_picks, input_population)
 
 
-# ## Perform Evolution
+# endregion
+
+# region Save Functions
+def save_output(input_population, best_scores_over_time, average_scores_over_time):
+    """
+
+    :return:
+    """
+
+    best_score = input_population[0][1]
+    individual_count = 0
+    for individual in population:
+        if individual[1] == population[0][1]:
+            individual_count += 1
+
+    # output results
+    results_file_content = "Final Population Size: " + str(len(input_population)) + "\n" \
+                           + str("Best score: " + str(best_score) + " | with difference to target score: "
+                                 + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
+    results_file_content += str("Number of mutants sharing best score: " + str(individual_count)) + "\n"
+    results_file_content += "Number of accepted mutations: " + str(
+        iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
+    results_file_content += "Number of accepted recombination products: " \
+                            + str(iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX]) + "\n"
+    results_file_content += "Best Score over Time: " + str(best_scores_over_time) + "\n"
+    results_file_content += "Average Score over Time: " + str(average_scores_over_time) + "\n"
+    for individual in input_population:
+        results_file_content += str(individual[0]) + ", " + str(individual[1]) + "\n"
+
+    results_file = open(out_path + "/EvoDock_results.txt", 'w')
+    results_file.write(results_file_content)
+    results_file.close()
+
+    # output history
+    total_history.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
+    history_file_content = "Entries in history: " + str(len(total_history)) + "\n"
+    for individual in total_history:
+        history_file_content += str(individual[0]) + ", " + str(individual[1]) + "\n"
+
+    history_file = open(out_path + "/EvoDock_history.txt", 'w')
+    history_file.write(history_file_content)
+    history_file.close()
+
+    # output run info TODO finish external module params integration
+    # # basic run info
+    current_time = datetime.datetime.now()
+    run_info_file_content = "Run information of run " + run_string + "\n"
+    run_info_file_content += "Run time: " + str(current_time - start_time) + "\n"
+    # # Initial Settings File - Content
+    run_info_file_content += "\n\n\nInitial Settings File - Content:\n"
+    for file_line in initial_settings_file_content:
+        run_info_file_content += file_line
+    # # Routine File - Content
+    run_info_file_content += "\n\n\nRoutine File - Content:\n"
+    for file_line in routine_file_content:
+        run_info_file_content += file_line
+    # # External Settings
+    run_info_file_content += "\n\n\nExternal Tool Settings File Contents:\n"
+
+    run_info_file = open(out_path + "/EvoDock_run_information.txt", 'w')
+    run_info_file.write(run_info_file_content)
+    run_info_file.close()
+
+    return
+
+
+# endregion
+
+# region Routine Check and Performing
 def check_routine():
     """
     Iterates through the specified routine file and checks, if all commands
@@ -752,7 +919,10 @@ def check_routine():
             if not routine == "\n":
                 undefined = True
         else:
-            if split_command[0] == MUTATE:
+            if split_command[0][0] == '#':
+                # comment line
+                pass
+            elif split_command[0] == MUTATE:
                 try:
                     mutation_number = int(split_command[1])
                     if mutation_number < 0:
@@ -828,69 +998,6 @@ def check_routine():
     return routine_errors
 
 
-def save_output(input_population, best_scores_over_time, average_scores_over_time):
-    """
-
-    :return:
-    """
-
-    best_score = input_population[0][1]
-    individual_count = 0
-    for individual in population:
-        if individual[1] == population[0][1]:
-            individual_count += 1
-
-    # output results
-    results_file_content = "Final Population Size: " + str(len(input_population)) + "\n" \
-                           + str("Best score: " + str(best_score) + " | with difference to target score: "
-                                 + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
-    results_file_content += str("Number of mutants sharing best score: " + str(individual_count)) + "\n"
-    results_file_content += "Number of accepted mutations: " + str(
-        iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
-    results_file_content += "Number of accepted recombination products: " \
-                            + str(iterationCounts[ITERATION_COUNT_RECOMBINATION_INDEX]) + "\n"
-    results_file_content += "Best Score over Time: " + str(best_scores_over_time) + "\n"
-    results_file_content += "Average Score over Time: " + str(average_scores_over_time) + "\n"
-    for individual in input_population:
-        results_file_content += str(individual[0]) + ", " + str(individual[1]) + "\n"
-
-    results_file = open(out_path + "/EvoDock_results.txt", 'w')
-    results_file.write(results_file_content)
-    results_file.close()
-
-    # output history
-    total_history.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
-    history_file_content = "Entries in history: " + str(len(total_history)) + "\n"
-    for individual in total_history:
-        history_file_content += str(individual[0]) + ", " + str(individual[1]) + "\n"
-
-    history_file = open(out_path + "/EvoDock_history.txt", 'w')
-    history_file.write(history_file_content)
-    history_file.close()
-
-    # output run info TODO finish external module params integration
-    # # basic run info
-    current_time = datetime.datetime.now()
-    run_info_file_content = "Run information of run " + run_string + "\n"
-    run_info_file_content += "Run time: " + str(current_time - start_time) + "\n"
-    # # Initial Settings File - Content
-    run_info_file_content += "\n\n\nInitial Settings File - Content:\n"
-    for file_line in initial_settings_file_content:
-        run_info_file_content += file_line
-    # # Routine File - Content
-    run_info_file_content += "\n\n\nRoutine File - Content:\n"
-    for file_line in routine_file_content:
-        run_info_file_content += file_line
-    # # External Settings
-    run_info_file_content += "\n\n\nExternal Tool Settings File Contents:\n"
-
-    run_info_file = open(out_path + "/EvoDock_run_information.txt", 'w')
-    run_info_file.write(run_info_file_content)
-    run_info_file.close()
-
-    return
-
-
 def perform_routine(input_population):
     """
     Iterates through the specified routine file and executes each command in the given order.
@@ -914,11 +1021,11 @@ def perform_routine(input_population):
     loop_jump = 0
     while routine_step < len(routine_file_content):
         routine = routine_file_content[routine_step]
-        if True:
-            print("Population Size: " + str(len(input_population)))
-            print("Do " + routine.strip() + "...")
         # strip line and separate it by spaces
         split_command = routine.strip().split(' ')
+        if split_command[0] != '' and not split_command[0][0] == "#":
+            print("Population Size: " + str(len(input_population)))
+            print("Do " + routine.strip() + "...")
         if len(split_command) >= 2:
             if split_command[0] == MUTATE:
                 # perform mutation
@@ -976,7 +1083,9 @@ def perform_routine(input_population):
     return [input_population, best_scores_over_time, average_scores_over_time]
 
 
-# ## Perform Evolution
+# endregion
+
+# region EvoDock Core
 # check errors in routine file
 errors = check_routine()
 if len(errors) > 0:
@@ -1023,9 +1132,20 @@ total_history = []
 iterationCounts = [0, 0]
 mds.set_values(original, out_path, protein_name, amino_acid_paths)
 
-# generate random population
-print("Generate initial Population...")
-population = generate_initial_population(start_population_size, original)
+# generate random or load initial population
+population = []
+if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
+    print("Generate initial Population...")
+    population = generate_initial_population(start_population_size, original)
+    # TODO save stats
+    # TODO export init pop
+    exit("Initial population was successfully created. EvoDock stops here like specified in initial settings.")
+elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
+    # TODO load population
+    pass
+elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
+    print("Generate initial Population...")
+    population = generate_initial_population(start_population_size, original)
 
 # perform the whole evolution routine
 routine_results = perform_routine(population)
@@ -1057,3 +1177,5 @@ if PLOT:
     plt.plot(average_scores)
     plt.plot(average_scores, "or")
     plt.show()
+
+# endregion
