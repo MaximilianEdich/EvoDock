@@ -24,6 +24,12 @@ except ImportError as e:
     exit("Error: Import of \"datetime\" failed. Make sure to provide this module, since it is essential. "
          "Error Message: " + str(e))
 try:
+    import ast
+except ImportError as e:
+    ast = None
+    exit("Error: Import of \"ast\" failed. Make sure to provide this module, since it is essential. "
+         "Error Message: " + str(e))
+try:
     from pathlib import Path
 except ImportError as e:
     Path = None
@@ -220,19 +226,22 @@ for line in initial_settings_file_content:
                         line_index) + " of the initial settings file. Must be >= 1.")
             elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
                 load_population_path = str(split_text[2])
+                initial_population_create_mode = INITIAL_POPULATION_LOAD
 
     elif split_text[0] == INITIAL_POPULATION_CREATE_MODE:
         # specify how the initial population is created, via mutation or via folding
-        try:
-            initial_population_create_mode = split_text[1]
-        except IndexError:
-            print("Error in line " + str(line_index) + ": Missing mode, choose one of these options:")
-            error_msg_create_init_pop_options()
-        if not (initial_population_create_mode == CREATE_VIA_FOLD
-                or initial_population_create_mode == CREATE_VIA_MUTATE):
-            # no specified mode
-            print("Error in line " + str(line_index) + ": Unknown mode, choose one of these options:")
-            error_msg_create_init_pop_options()
+        if initial_population_run_mode != INITIAL_POPULATION_LOAD:
+            # not relevant, if loaded from file
+            try:
+                initial_population_create_mode = split_text[1]
+            except IndexError:
+                print("Error in line " + str(line_index) + ": Missing mode, choose one of these options:")
+                error_msg_create_init_pop_options()
+            if not (initial_population_create_mode == CREATE_VIA_FOLD
+                    or initial_population_create_mode == CREATE_VIA_MUTATE):
+                # no specified mode
+                print("Error in line " + str(line_index) + ": Unknown mode, choose one of these options:")
+                error_msg_create_init_pop_options()
 
     elif split_text[0] == TARGET_SCORE:
         defined_target_score = True
@@ -441,7 +450,6 @@ def generate_initial_population(number_of_initial_individuals, original_individu
     # initialize population with original individual
     new_population = [original_individual]
     total_history.append(original_individual)
-
     # generate new individuals with genes only, without scoring yet
     for n in range(number_of_initial_individuals - 1):
         # generate new individual
@@ -833,10 +841,29 @@ def select_fittest_by_fraction(fraction_percent, random_picks_percent, input_pop
 # endregion
 
 # region Save Functions
-def save_output(input_population, best_scores_over_time, average_scores_over_time):
+def save_population_list(individuals, name):
     """
+    Take a list containing only individuals and save it with the given name included in file name and header.
+    The header contains also the number of entries.
+    :param individuals:
+    :param name:
+    :return: None.
+    """
+    individuals.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
+    file_content = "Entries in " + str(name) + ": " + str(len(individuals)) + "\n"
+    for individual in individuals:
+        file_content += str(individual[0]) + ";" + str(individual[1]) + "\n"
 
-    :return:
+    out_file = open(out_path + "/EvoDock_" + str(name) + ".txt", 'w')
+    out_file.write(file_content)
+    out_file.close()
+    return
+
+
+def save_output(input_population, best_scores_over_time, average_scores_over_time, extra_info=""):
+    """
+    Save the current results, history, and run information, like input files and settings.
+    :return: None.
     """
 
     best_score = input_population[0][1]
@@ -846,7 +873,10 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
             individual_count += 1
 
     # output results
-    results_file_content = "Final Population Size: " + str(len(input_population)) + "\n" \
+    results_file_content = ""
+    if extra_info != "":
+        results_file_content += extra_info + "\n"
+    results_file_content += "Final Population Size: " + str(len(input_population)) + "\n" \
                            + str("Best score: " + str(best_score) + " | with difference to target score: "
                                  + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
     results_file_content += str("Number of mutants sharing best score: " + str(individual_count)) + "\n"
@@ -864,14 +894,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     results_file.close()
 
     # output history
-    total_history.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
-    history_file_content = "Entries in history: " + str(len(total_history)) + "\n"
-    for individual in total_history:
-        history_file_content += str(individual[0]) + ", " + str(individual[1]) + "\n"
-
-    history_file = open(out_path + "/EvoDock_history.txt", 'w')
-    history_file.write(history_file_content)
-    history_file.close()
+    save_population_list(total_history, "history")
 
     # output run info TODO finish external module params integration
     # # basic run info
@@ -1062,7 +1085,7 @@ def perform_routine(input_population):
 
                 best_scores_over_time.append(input_population[0][1])
                 average_scores_over_time.append(ger_average_score(input_population))
-                save_output(input_population, best_scores_over_time, average_scores_over_time)
+                save_output(input_population, best_scores_over_time, average_scores_over_time, "-intermediate result-")
             elif split_command[0] == LOOP:
                 # set repeat number and point
                 loop_number = int(split_command[1]) - 1
@@ -1137,15 +1160,37 @@ population = []
 if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     print("Generate initial Population...")
     population = generate_initial_population(start_population_size, original)
-    # TODO save stats
-    # TODO export init pop
+    best_scores = [population[0][1]]
+    average_scores = [population[0][1]]
+    population.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
+    best_scores.append(population[0][1])
+    average_scores.append(ger_average_score(population))
+    save_output(population, best_scores, average_scores, "initial population only")
+    save_population_list(population, "init_pop_via_" + initial_population_create_mode)
     exit("Initial population was successfully created. EvoDock stops here like specified in initial settings.")
 elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
-    # TODO load population
-    pass
+    # load file
+    population_file_content = ""
+    try:
+        population_file = open(load_population_path, 'r')
+        population_file_content = population_file.readlines()
+        population_file.close()
+    except FileNotFoundError:
+        exit("Error: Initial population file does not exist!")
+    except PermissionError:
+        exit("Error: Initial population file can not be opened, permission denied!")
+    # translate into population
+    for entry in population_file_content[1:]:
+        individual = [[], 0]
+        content = entry.strip().split(';')
+        individual[1] = float(content[1])
+        individual[0] = ast.literal_eval(content[0])
+        population.append(individual)
+    save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
     print("Generate initial Population...")
     population = generate_initial_population(start_population_size, original)
+    save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 
 # perform the whole evolution routine
 routine_results = perform_routine(population)

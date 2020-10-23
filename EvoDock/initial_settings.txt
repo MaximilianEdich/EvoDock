@@ -1,4 +1,4 @@
-init-pop create_and_evolve 50
+init-pop load_and_evolve EvoDock_init_pop_via_mutate.txt
 init-pop-create-mode mutate
 mode LIGAND-BINDING
 targetscore 100
