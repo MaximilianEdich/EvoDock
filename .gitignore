@@ -6,6 +6,8 @@ MathTest.py
 EvoDock_history.txt
 EvoDock_results.txt
 EvoDock_output_run*
+EvoDock/molecules/*
+EvoDock/molfile2params/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,14 +1,18 @@
-init-pop load_and_evolve EvoDock_init_pop_via_mutate.txt
-init-pop-create-mode mutate
-mode LIGAND-BINDING
-targetscore 100
-prot 1rgs
-aa /1rgs/A/A/299
-aa /1rgs/A/A/333
-aa /1rgs/A/A/371
-initial>V,R,Y
+-init-pop create_and_quit 3
+-init-pop-create-mode mutate
+-mode LIGAND-BINDING
+-targetscore 100
+-prot-path 2PQL.clean.pdb
+-res-id 3
+-res-id 111
+-res-id 135
+initial>V,D,M
 >
 >
 >
-cpu 8
-seed 12345
+-cpu 8
+-seed 12345
+-mutate MutateByPyRosetta
+-dock DockByPyRosetta
+-score ScoreTemplate
+-fold FoldByPyRosetta

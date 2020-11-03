@@ -59,7 +59,6 @@ if PLOT:
         plt = None
         exit("Error: Import of \"matplotlib.pyplot\" failed. Make sure to provide this module, since it is essential.")
 
-print("\nIMPORTS DONE!")
 # endregion
 
 # start run time counter
@@ -67,14 +66,14 @@ start_time = datetime.datetime.now()
 
 # region String Vars and Indecies
 # initial settings file values
-TARGET_SCORE = "targetscore"
-MODE = "mode"
+TARGET_SCORE = "-targetscore"
+MODE = "-mode"
 MODE_LIGAND_BINDING = "LIGAND-BINDING"
 MODE_PROTEIN_BINDING = "PROTEIN-BINDING"
 MODE_THERMO_STABILITY = "THERMO-STABILITY"
-CPU_CORE_NUMBER = "cpu"
-SEED = "seed"
-INITIAL_POPULATION = "init-pop"
+CPU_CORE_NUMBER = "-cpu"
+SEED = "-seed"
+INITIAL_POPULATION = "-init-pop"
 # init-pop create_and_quit <pop-size>
 INITIAL_POPULATION_NEW_STOP = "create_and_quit"
 # init-pop load_and_evolve <path-to-population>
@@ -82,9 +81,16 @@ INITIAL_POPULATION_LOAD = "load_and_evolve"
 # init-pop create_and_evolve <pop-size>
 INITIAL_POPULATION_NEW_FULL_RUN = "create_and_evolve"
 # init-pop-create-mode fold/mutate
-INITIAL_POPULATION_CREATE_MODE = "init-pop-create-mode"
+INITIAL_POPULATION_CREATE_MODE = "-init-pop-create-mode"
 CREATE_VIA_FOLD = "fold"
 CREATE_VIA_MUTATE = "mutate"
+PROTEIN_PATH = "-prot-path"
+AA_PATH = "-res-id"
+MODULE_NAME_MUTATE = "-mutate"
+MODULE_NAME_DOCK = "-dock"
+MODULE_NAME_SCORE = "-score"
+MODULE_NAME_FOLD = "-fold"
+
 
 # strings for commands
 MUTATE = "mutate"
@@ -116,6 +122,7 @@ parser.add_argument("-s", "--settings", type=str, required=True,
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
                                                                      "for a list of all commands.")
 parser.add_argument("-pre", "--prefix", type=str, required=False, help="Prefix of the output folder.")
+parser.add_argument("-o", "--out", type=str, required=False, help="Path to desired output destination.")
 args = parser.parse_args()
 # TODO specify optional technical settings
 # endregion
@@ -126,10 +133,14 @@ initial_population_run_mode = ""
 initial_population_create_mode = ""
 start_population_size = 0
 load_population_path = ""
+module_name_mutate = ""
+module_name_dock = ""
+module_name_score = ""
+module_name_fold = ""
 
 target_score = 0
 original = [[], 0]
-protein_name = ""
+protein_path = ""
 mode = ""
 amino_acid_paths = []
 number_of_mutable_aa = 0
@@ -192,7 +203,7 @@ def error_msg_create_init_pop_options():
 
 # region check initial settings file content
 line_index = 0
-# TODO check exceptions
+# TODO check exceptions (IndexError)
 for line in initial_settings_file_content:
     line_index += 1
     # prepare line
@@ -252,8 +263,34 @@ for line in initial_settings_file_content:
             exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
 
+    elif split_text[0] == MODULE_NAME_MUTATE:
+        # specified mutation module
+        try:
+            module_name_mutate = str(split_text[1])
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+    elif split_text[0] == MODULE_NAME_DOCK:
+        # specified mutation module
+        try:
+            module_name_dock = str(split_text[1])
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+    elif split_text[0] == MODULE_NAME_SCORE:
+        # specified mutation module
+        try:
+            module_name_score = str(split_text[1])
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+    elif split_text[0] == MODULE_NAME_FOLD:
+        # specified mutation module
+        try:
+            module_name_fold = str(split_text[1])
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+
     elif split_text[0][0:len("initial>")] == "initial>":
         # original individual
+        # TODO if auto, do automatically via mutate module
         initial_genes = split_text[0][len("initial>"):].split(',')
         original[0] = initial_genes
         number_of_mutable_aa = len(initial_genes)
@@ -262,18 +299,20 @@ for line in initial_settings_file_content:
         if split_text[0][1:] == "":
             # empty, allow all mutations
             allowed_mutations.append(['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M',
-                                      'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'U', 'O'])
+                                      'F', 'P', 'S', 'T', 'W', 'Y', 'V'])
         else:
             # not empty, allow only specified mutations
             allowed = split_text[0][1:].split(',')
             allowed_mutations.append(allowed)
-    elif split_text[0] == "aa":
-        # amino acid path
+    elif split_text[0] == AA_PATH:
+        # residue id and/or path, depends on the used tools TODO argument check
         amino_acid_paths.append(str(split_text[1]))
-    # TODO replace prot name with variable
-    elif split_text[0] == "prot":
+    elif split_text[0] == PROTEIN_PATH:
         # protein pdb code
-        protein_name = str(split_text[1])
+        try:
+            protein_path = str(split_text[1])
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
     elif split_text[0] == MODE:
         # modification mode
         mode = str(split_text[1])
@@ -305,6 +344,9 @@ if not original[0]:
 if number_of_mutable_aa != len(allowed_mutations):
     exit("Error in initial settings file: Number of substitutions per position does not match with the number"
          "of mutable amino acids in the original protein!")
+if len(amino_acid_paths) != len(allowed_mutations):
+    exit("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
+         "are not equal!")
 if initial_population_run_mode == "":
     print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION + "\"! Use these options:")
     error_msg_initial_population_options()
@@ -314,13 +356,33 @@ if initial_population_create_mode == "" and initial_population_run_mode != INITI
     error_msg_create_init_pop_options()
 if not defined_target_score:
     exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
+if protein_path != "":
+    try:
+        test_file = open(protein_path)
+        test_file.close()
+    except FileNotFoundError:
+        exit("Error in initial settings file: Specified protein file not found!")
+    except PermissionError:
+        exit("Error in initial settings file: No permission to open file!")
+    # TODO check if specified tools can work with this file: PyRosetta: is it cleaned and a pdb?
+else:
+    exit("Error in initial settings file: You have to specify the \"" + PROTEIN_PATH + " leading to your .pdb\"!")
+if module_name_mutate == "":
+    exit("Error in initial settings file: You have to specify the mutation-module via \"" + MODULE_NAME_MUTATE + "\"!")
+if module_name_dock == "":
+    exit("Error in initial settings file: You have to specify the docking-module via \"" + MODULE_NAME_DOCK + "\"!")
+if module_name_score == "":
+    exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
+if module_name_fold == "":
+    exit("Error in initial settings file: You have to specify the folding-module via \"" + MODULE_NAME_FOLD + "\"!")
 
 # endregion
 
-# TODO read initial genes from pdb
-# do this via new class
+print("import specified modules...")
+MutateDockScoreModule.init(module_name_mutate, module_name_dock, module_name_score, module_name_fold)
+MutateDockScoreModule.check_imported_modules()
 
-print("FILE LOADINGS DONE!\n")
+print("IMPORTS AND FILE LOADINGS DONE!\n")
 # print loaded info summary
 print("original individual + amino acid paths:")
 print(original[0])
@@ -341,8 +403,11 @@ def get_and_write_score(target_individual):
     gene represents an amino acid.
     :return: The individual with its new calculated score as the individuals fitness.
     """
-    # calculate the score (by using external software)
-    score = MutateDockScoreModule.get_score(target_individual, mds)
+    # calculate the score (by using external software) TODO check parameter and not initial setting
+    if initial_population_create_mode == CREATE_VIA_MUTATE:
+        score = MutateDockScoreModule.get_score(target_individual, mds, False)
+    else:
+        score = MutateDockScoreModule.get_score(target_individual, mds, True)
     # write the score into the individual and return score
     target_individual[1] = score
 
@@ -1115,7 +1180,7 @@ if len(errors) > 0:
     exit("Exit algorithm due to errors in routine file.")
 # no errors, proceed with evolution
 
-# create output folder
+# region create output folder
 # get start time of current run in string format
 month = str(start_time.month)
 if len(month) == 1:
@@ -1131,11 +1196,16 @@ if len(minute) == 1:
     minute = "0" + minute
 # build string containing start time
 run_string = str(start_time.year) + "-" + month + "-" + day + "_" + hour + "-" + minute
+# take path to destination
+if args.out is None:
+    out_destination = ""
+else:
+    out_destination = str(args.out)
 # build output path and create folder
 if args.prefix is None:
-    out_path = "EvoDock_output_run_" + run_string
+    out_path = out_destination + "EvoDock_output_run_" + run_string
 else:
-    out_path = str(args.prefix) + "_EvoDock_output_run_" + run_string
+    out_path = out_destination + str(args.prefix) + "_EvoDock_output_run_" + run_string
 try:
     Path(out_path).mkdir(parents=True, exist_ok=False)
 except FileExistsError:
@@ -1148,25 +1218,39 @@ except FileExistsError:
         except FileExistsError:
             suffix += 1
     out_path = out_path + "_" + str(suffix)
+except FileNotFoundError as e:
+    exit("Directory not found. " + str(e))
+except PermissionError as e:
+    exit("No permission for directory. " + str(e))
+# endregion
 
 # prepare and run evolution
 # init variables for evolution
 total_history = []
 iterationCounts = [0, 0]
-mds.set_values(original, out_path, protein_name, amino_acid_paths)
+mds.set_values(original, out_path, protein_path, amino_acid_paths)
+print("Start preparing tools...")
+MutateDockScoreModule.prepare_tool(protein_path, out_path)
+protein_path = MutateDockScoreModule.preparation_result_path(protein_path, out_path)
+print(protein_path)
 
 # generate random or load initial population
 population = []
 if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     print("Generate initial Population...")
     population = generate_initial_population(start_population_size, original)
+    # create input lists for saving function
     best_scores = [population[0][1]]
     average_scores = [population[0][1]]
     population.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
     best_scores.append(population[0][1])
     average_scores.append(ger_average_score(population))
+    # save
     save_output(population, best_scores, average_scores, "initial population only")
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
+    end_time = datetime.datetime.now()
+    # exit
+    print("Run time: " + str(end_time - start_time))
     exit("Initial population was successfully created. EvoDock stops here like specified in initial settings.")
 elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
     # load file
@@ -1181,13 +1265,15 @@ elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
         exit("Error: Initial population file can not be opened, permission denied!")
     # translate into population
     for entry in population_file_content[1:]:
-        individual = [[], 0]
+        load_individual = [[], 0]
         content = entry.strip().split(';')
-        individual[1] = float(content[1])
-        individual[0] = ast.literal_eval(content[0])
-        population.append(individual)
+        load_individual[1] = float(content[1])
+        load_individual[0] = ast.literal_eval(content[0])
+        population.append(load_individual)
+    # save copy in output folder
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
+    # create population and save initial population
     print("Generate initial Population...")
     population = generate_initial_population(start_population_size, original)
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)

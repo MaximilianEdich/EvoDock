@@ -11,6 +11,14 @@ LOOP_TEMPLATE = ""
 TAIL_TEMPLATE = ""
 
 
+def is_mutation_module():
+    """
+    This function is essential to verify, that it is a mutation module and is required, so it cannot be used as
+    a module of a different type.
+    """
+    return True
+
+
 def get_3_letter_code(single_letter):
     """
     Converts a single letter amino acid code to a three letter amino acid code.
@@ -121,12 +129,12 @@ def get_template(amino_acid_paths, mutations, protein_code):
     return template
 
 
-def generate_docking_input(mutations, out_path, amino_acid_paths, protein_code):
+def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
     adapt the backbone to the change. Results are saved in a new pdb file. During this process a pml file is
     generated, containing the PyMOL script that performs the mutagenesis.
-    :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
+    :param protein_path: The protein accession code, by wich the protein structure can be fetched with.
     :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
     :param out_path: The path leading to the output files specific to the mutation.
     :param mutations: List of mutations relative to the original protein. An empty string represents no mutation while
@@ -135,7 +143,7 @@ def generate_docking_input(mutations, out_path, amino_acid_paths, protein_code):
     """
 
     # load template for mutagenesis
-    template_content = get_template(amino_acid_paths, mutations, protein_code)
+    template_content = get_template(amino_acid_paths, mutations, protein_path)
 
     # insert unique mutation information
     for aa in mutations:

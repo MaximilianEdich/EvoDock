@@ -7,75 +7,147 @@ protein. Next the protein will be used in docking and get a score.
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-try:
-    import MutateByPyRosetta as mutate_mod
-except ImportError as e:
-    mutate_mod = None
-    exit("Error: Import of \"MutateByPyRosetta\" failed. Make sure to provide this module, since it is essential. "
-         "This was the import of your specified MutationModule. Make sure it is in the correct Folder. "
-         "Check the documentation for more information. ")
-try:
-    import DockTemplate as dock_mod
-except ImportError as e:
-    dock_mod = None
-    exit("Error: Import of \"\" failed. Make sure to provide this module, since it is essential. "
-         "This was the import of your specified DockModule. Make sure it is in the correct Folder. "
-         "Check the documentation for more information. "
-         "Error Message: " + str(e))
-try:
-    import ScoreTemplate as score_mod
-except ImportError as e:
-    score_mod = None
-    exit("Error: Import of \"\" failed. Make sure to provide this module, since it is essential. "
-         "This was the import of your specified ScoreModule. Make sure it is in the correct Folder. "
-         "Check the documentation for more information. "
-         "Error Message: " + str(e))
+import importlib
+
+global mutate_mod
+global dock_mod
+global score_mod
+global fold_mod
 
 
-class MutateDockScore():
+def init(mutate, dock, score, fold):
+    """
+    Import desired modules.
+    """
+    mutate_mod_name = mutate
+    dock_mod_name = dock
+    score_mod_name = score
+    fold_mod_name = fold
+    global mutate_mod
+    global dock_mod
+    global score_mod
+    global fold_mod
+
+    try:
+        mutate_mod = importlib.import_module(mutate_mod_name)
+    except ImportError as e:
+        mutate_mod = None
+        exit("Error: Import of \"" + mutate_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+             "This was the import of your specified MutationModule. Make sure it is in the correct Folder. "
+             "Check the documentation for more information.\nError Message: " + str(e))
+    try:
+        dock_mod = importlib.import_module(dock_mod_name)
+    except ImportError as e:
+        dock_mod = None
+        exit("Error: Import of \"" + dock_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+             "This was the import of your specified DockModule. Make sure it is in the correct Folder. "
+             "Check the documentation for more information.\nError Message: " + str(e))
+    try:
+        score_mod = importlib.import_module(score_mod_name)
+    except ImportError as e:
+        score_mod = None
+        exit("Error: Import of \"" + score_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+             "This was the import of your specified ScoreModule. Make sure it is in the correct Folder. "
+             "Check the documentation for more information.\nError Message: " + str(e))
+    try:
+        fold_mod = importlib.import_module(fold_mod_name)
+    except ImportError as e:
+        fold_mod = None
+        exit("Error: Import of \"" + fold_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+             "This was the import of your specified FoldModule. Make sure it is in the correct Folder. "
+             "Check the documentation for more information.\nError Message: " + str(e))
+    return
+
+
+def check_imported_modules():
+    try:
+        mutate_mod.is_mutation_module()
+    except AttributeError:
+        exit("Error, specified mutation module is not a mutation module!")
+    try:
+        dock_mod.is_docking_module()
+    except AttributeError:
+        exit("Error, specified docking module is not a docking module!")
+    try:
+        score_mod.is_scoring_module()
+    except AttributeError:
+        exit("Error, specified scoring module is not a scoring module!")
+    try:
+        fold_mod.is_folding_module()
+    except AttributeError:
+        exit("Error, specified folding module is not a folding module!")
+
+    return
+
+
+class MutateDockScore:
     def __init__(self):
         self.original_individual = None
         self.out_path = None
-        self.protein_code = None
+        self.protein_path = None
         self.amino_acid_paths = None
         return
 
-
-    def set_values(self, original_individual, out_path, protein_code, amino_acid_paths):
+    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths):
         self.original_individual = original_individual
         self.out_path = out_path
-        self.protein_code = protein_code
+        self.protein_path = protein_path
         self.amino_acid_paths = amino_acid_paths
         return
 
 
-def generate_docking_input(mutations, run_out_path, protein_code, amino_acid_paths):
+def preparation_result_path(protein_path, out_path):
+    """
+
+    :param protein_path:
+    :param out_path:
+    :return:
+    """
+    return mutate_mod.preparation_result_path(protein_path, out_path)
+
+
+def prepare_tool(protein_path, out_path):
+    """
+
+    :param out_path:
+    :param protein_path:
+    :return:
+    """
+    mutate_mod.prepare_files_for_tool(protein_path, out_path)
+
+    return
+
+
+def generate_docking_input(mutations, run_out_path, protein_path, amino_acid_paths, fold_instead_mutate):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
     adapt the backbone to the change. Results are saved in new generated pdb files.
+    :param fold_instead_mutate:
     :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
     :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
     :param run_out_path: The path leading to the output files.
     :return: None. The generated files are of interest.
     """
-
-    mutate_mod.generate_docking_input(mutations, run_out_path, amino_acid_paths, protein_code)
+    if fold_instead_mutate:
+        fold_mod.generate_docking_input(protein_path, amino_acid_paths, mutations, run_out_path)
+    else:
+        mutate_mod.generate_docking_input(protein_path, amino_acid_paths, mutations, run_out_path)
 
     return
 
 
-def perform_docking(mutations, run_out_path, amino_acid_paths, protein_code):
+def perform_docking(mutations, run_out_path, amino_acid_paths, protein_path):
     """
 
     :return:
     """
 
-    dock_mod.perform_docking(mutations, run_out_path, amino_acid_paths, protein_code)
+    dock_mod.perform_docking(mutations, run_out_path, amino_acid_paths, protein_path)
 
     return
 
 
-def calculate_fitness_score(target_individual, mutations, run_out_path, amino_acid_paths, protein_code):
+def calculate_fitness_score(target_individual, mutations, run_out_path, amino_acid_paths, protein_path):
     """
     Uses data from mutagenesis and the docking to calculate a fitness score.
     :param target_individual: An individual in the form of [g, s], where s is the score
@@ -84,20 +156,16 @@ def calculate_fitness_score(target_individual, mutations, run_out_path, amino_ac
     :return: the calculated score as the individuals fitness.
     """
 
-    score_mod.calculate_fitness(mutations, run_out_path, amino_acid_paths, protein_code)
-
-    score = 0
-    for aa in target_individual[0]:
-        score += ord(aa)
-    score = score / len(target_individual[0])
+    score = score_mod.calculate_fitness(mutations, run_out_path, amino_acid_paths, protein_path)
 
     return score
 
 
-def get_score(target_individual, mds: MutateDockScore):
+def get_score(target_individual, mds: MutateDockScore, fold_instead_mutate):
     """
     Use the given input to generate a mutant and perform a ligand docking, both via external software tools.
     Output information of both tools is then used to determine a score that is usable as a fitness score for evolution.
+    :param fold_instead_mutate:
     :param target_individual: An individual in the form of [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid.
@@ -121,12 +189,12 @@ def get_score(target_individual, mds: MutateDockScore):
             mutations.append((target_individual[0][k]))
 
     # generate new pdb as input for docking
-    generate_docking_input(mutations, run_out_path, mds.protein_code, mds.amino_acid_paths)
+    generate_docking_input(mutations, run_out_path, mds.protein_path, mds.amino_acid_paths, fold_instead_mutate)
 
     # use fresh input for protein-ligand docking
-    perform_docking(mutations, run_out_path, mds.amino_acid_paths, mds.protein_code)
+    perform_docking(mutations, run_out_path, mds.amino_acid_paths, mds.protein_path)
 
     # use results to calculate fitness score
-    score = calculate_fitness_score(target_individual, mutations, run_out_path, mds.amino_acid_paths, mds.protein_code)
+    score = calculate_fitness_score(target_individual, mutations, run_out_path, mds.amino_acid_paths, mds.protein_path)
 
     return score

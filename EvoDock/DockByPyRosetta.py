@@ -4,6 +4,15 @@ from pyrosetta import init
 
 init()
 
+
+def is_docking_module():
+    """
+    This function is essential to verify, that it is a docking module and is required, so it cannot be used as
+    a module of a different type.
+    """
+    return True
+
+
 def perform_docking(mutations, out_path, amino_acid_paths, protein_code):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
