@@ -1,5 +1,21 @@
 
 
+def is_mutation_module():
+    """
+    This function is essential to verify, that it is a mutation module and is required, so it cannot be used as
+    a module of a different type.
+    """
+    return True
+
+
+def preparation_result_path(protein_path, out_path):
+    return protein_path
+
+
+def prepare_files_for_tool(protein_path, out_path):
+    return
+
+
 def generate_docking_input(mutations, out_path, amino_acid_paths, protein_code):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and

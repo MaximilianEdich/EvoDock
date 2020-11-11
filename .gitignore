@@ -8,6 +8,8 @@ EvoDock_results.txt
 EvoDock_output_run*
 EvoDock/molecules/*
 EvoDock/molfile2params/*
+EvoDock/initial_settings_folder/*
+EvoDock/results*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

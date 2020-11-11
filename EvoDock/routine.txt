@@ -1,7 +1,7 @@
 loop 5
 recombine 3
 mutate+ 3
-select 150 0.25
+select 100 0.25
 
 mutate+ 5
 select 24 0.25

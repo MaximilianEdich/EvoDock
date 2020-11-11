@@ -1,0 +1,72 @@
+python3 EvoDock.py -s initial_settings_9.txt -r routine.txt -o results9/
+python3 EvoDock.py -s initial_settings_9.txt -r routine.txt -o results9/
+python3 EvoDock.py -s initial_settings_9.txt -r routine.txt -o results9/
+python3 EvoDock.py -s initial_settings_9.txt -r routine.txt -o results9/
+python3 EvoDock.py -s initial_settings_9.txt -r routine.txt -o results9/
+python3 ResultsReader.py -r results9/
+python3 EvoDock.py -s initial_settings_10.txt -r routine.txt -o results10/
+python3 EvoDock.py -s initial_settings_10.txt -r routine.txt -o results10/
+python3 EvoDock.py -s initial_settings_10.txt -r routine.txt -o results10/
+python3 EvoDock.py -s initial_settings_10.txt -r routine.txt -o results10/
+python3 EvoDock.py -s initial_settings_10.txt -r routine.txt -o results10/
+python3 ResultsReader.py -r results10/
+python3 EvoDock.py -s initial_settings_11.txt -r routine.txt -o results11/
+python3 EvoDock.py -s initial_settings_11.txt -r routine.txt -o results11/
+python3 EvoDock.py -s initial_settings_11.txt -r routine.txt -o results11/
+python3 EvoDock.py -s initial_settings_11.txt -r routine.txt -o results11/
+python3 EvoDock.py -s initial_settings_11.txt -r routine.txt -o results11/
+python3 ResultsReader.py -r results11/
+python3 EvoDock.py -s initial_settings_12.txt -r routine.txt -o results12/
+python3 EvoDock.py -s initial_settings_12.txt -r routine.txt -o results12/
+python3 EvoDock.py -s initial_settings_12.txt -r routine.txt -o results12/
+python3 EvoDock.py -s initial_settings_12.txt -r routine.txt -o results12/
+python3 EvoDock.py -s initial_settings_12.txt -r routine.txt -o results12/
+python3 ResultsReader.py -r results12/
+python3 EvoDock.py -s initial_settings_13.txt -r routine.txt -o results13/
+python3 EvoDock.py -s initial_settings_13.txt -r routine.txt -o results13/
+python3 EvoDock.py -s initial_settings_13.txt -r routine.txt -o results13/
+python3 EvoDock.py -s initial_settings_13.txt -r routine.txt -o results13/
+python3 EvoDock.py -s initial_settings_13.txt -r routine.txt -o results13/
+python3 ResultsReader.py -r results13/
+python3 EvoDock.py -s initial_settings_14.txt -r routine.txt -o results14/
+python3 EvoDock.py -s initial_settings_14.txt -r routine.txt -o results14/
+python3 EvoDock.py -s initial_settings_14.txt -r routine.txt -o results14/
+python3 EvoDock.py -s initial_settings_14.txt -r routine.txt -o results14/
+python3 EvoDock.py -s initial_settings_14.txt -r routine.txt -o results14/
+python3 ResultsReader.py -r results14/
+python3 EvoDock.py -s initial_settings_15.txt -r routine.txt -o results15/
+python3 EvoDock.py -s initial_settings_15.txt -r routine.txt -o results15/
+python3 EvoDock.py -s initial_settings_15.txt -r routine.txt -o results15/
+python3 EvoDock.py -s initial_settings_15.txt -r routine.txt -o results15/
+python3 EvoDock.py -s initial_settings_15.txt -r routine.txt -o results15/
+python3 ResultsReader.py -r results15/
+python3 EvoDock.py -s initial_settings_16.txt -r routine.txt -o results16/
+python3 EvoDock.py -s initial_settings_16.txt -r routine.txt -o results16/
+python3 EvoDock.py -s initial_settings_16.txt -r routine.txt -o results16/
+python3 EvoDock.py -s initial_settings_16.txt -r routine.txt -o results16/
+python3 EvoDock.py -s initial_settings_16.txt -r routine.txt -o results16/
+python3 ResultsReader.py -r results16/
+python3 EvoDock.py -s initial_settings_17.txt -r routine.txt -o results17/
+python3 EvoDock.py -s initial_settings_17.txt -r routine.txt -o results17/
+python3 EvoDock.py -s initial_settings_17.txt -r routine.txt -o results17/
+python3 EvoDock.py -s initial_settings_17.txt -r routine.txt -o results17/
+python3 EvoDock.py -s initial_settings_17.txt -r routine.txt -o results17/
+python3 ResultsReader.py -r results17/
+python3 EvoDock.py -s initial_settings_18.txt -r routine.txt -o results18/
+python3 EvoDock.py -s initial_settings_18.txt -r routine.txt -o results18/
+python3 EvoDock.py -s initial_settings_18.txt -r routine.txt -o results18/
+python3 EvoDock.py -s initial_settings_18.txt -r routine.txt -o results18/
+python3 EvoDock.py -s initial_settings_18.txt -r routine.txt -o results18/
+python3 ResultsReader.py -r results18/
+python3 EvoDock.py -s initial_settings_19.txt -r routine.txt -o results19/
+python3 EvoDock.py -s initial_settings_19.txt -r routine.txt -o results19/
+python3 EvoDock.py -s initial_settings_19.txt -r routine.txt -o results19/
+python3 EvoDock.py -s initial_settings_19.txt -r routine.txt -o results19/
+python3 EvoDock.py -s initial_settings_19.txt -r routine.txt -o results19/
+python3 ResultsReader.py -r results19/
+python3 EvoDock.py -s initial_settings_20.txt -r routine.txt -o results20/
+python3 EvoDock.py -s initial_settings_20.txt -r routine.txt -o results20/
+python3 EvoDock.py -s initial_settings_20.txt -r routine.txt -o results20/
+python3 EvoDock.py -s initial_settings_20.txt -r routine.txt -o results20/
+python3 EvoDock.py -s initial_settings_20.txt -r routine.txt -o results20/
+python3 ResultsReader.py -r results20/

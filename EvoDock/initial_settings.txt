@@ -1,18 +1,19 @@
--init-pop create_and_quit 3
+-init-pop-run-mode create-and-quit 5
 -init-pop-create-mode mutate
--mode LIGAND-BINDING
--targetscore 100
--prot-path 2PQL.clean.pdb
+-task LIGAND-BINDING
+-targetscore 1000
+-prot-path molecules/2PQL.relaxed.pdb
 -res-id 3
 -res-id 111
 -res-id 135
 initial>V,D,M
->
->
->
+-substitutions
+-substitutions
+-substitutions
 -cpu 8
 -seed 12345
 -mutate MutateByPyRosetta
--dock DockByPyRosetta
--score ScoreTemplate
+-apply DockByPyRosetta
+-score ScoreOnPyRosetta
 -fold FoldByPyRosetta
+-module-param-mutate -backbone-mover SMALL-MOVER

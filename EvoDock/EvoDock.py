@@ -67,29 +67,37 @@ start_time = datetime.datetime.now()
 # region String Vars and Indecies
 # initial settings file values
 TARGET_SCORE = "-targetscore"
-MODE = "-mode"
-MODE_LIGAND_BINDING = "LIGAND-BINDING"
-MODE_PROTEIN_BINDING = "PROTEIN-BINDING"
-MODE_THERMO_STABILITY = "THERMO-STABILITY"
+TASK_TYPE = "-task"
+TASK_LIGAND_BINDING = "LIGAND-BINDING"
+TASK_PROTEIN_BINDING = "PROTEIN-BINDING"
+TASK_THERMO_STABILITY = "THERMO-STABILITY"
+TASKS = []
+# TODO add here more tasks
+TASKS.append(TASK_LIGAND_BINDING)
+
 CPU_CORE_NUMBER = "-cpu"
 SEED = "-seed"
-INITIAL_POPULATION = "-init-pop"
+INITIAL_POPULATION = "-init-pop-run-mode"
 # init-pop create_and_quit <pop-size>
-INITIAL_POPULATION_NEW_STOP = "create_and_quit"
+INITIAL_POPULATION_NEW_STOP = "create-and-quit"
 # init-pop load_and_evolve <path-to-population>
-INITIAL_POPULATION_LOAD = "load_and_evolve"
+INITIAL_POPULATION_LOAD = "load-and-evolve"
 # init-pop create_and_evolve <pop-size>
-INITIAL_POPULATION_NEW_FULL_RUN = "create_and_evolve"
+INITIAL_POPULATION_NEW_FULL_RUN = "create-and-evolve"
 # init-pop-create-mode fold/mutate
 INITIAL_POPULATION_CREATE_MODE = "-init-pop-create-mode"
 CREATE_VIA_FOLD = "fold"
 CREATE_VIA_MUTATE = "mutate"
 PROTEIN_PATH = "-prot-path"
 AA_PATH = "-res-id"
+SUBSTITUTIONS = "-substitutions"
+
 MODULE_NAME_MUTATE = "-mutate"
-MODULE_NAME_DOCK = "-dock"
+MODULE_NAME_APPLY = "-apply"
 MODULE_NAME_SCORE = "-score"
 MODULE_NAME_FOLD = "-fold"
+
+
 
 
 # strings for commands
@@ -203,6 +211,7 @@ def error_msg_create_init_pop_options():
 
 # region check initial settings file content
 line_index = 0
+module_params = []
 # TODO check exceptions (IndexError)
 for line in initial_settings_file_content:
     line_index += 1
@@ -269,7 +278,7 @@ for line in initial_settings_file_content:
             module_name_mutate = str(split_text[1])
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
-    elif split_text[0] == MODULE_NAME_DOCK:
+    elif split_text[0] == MODULE_NAME_APPLY:
         # specified mutation module
         try:
             module_name_dock = str(split_text[1])
@@ -294,15 +303,15 @@ for line in initial_settings_file_content:
         initial_genes = split_text[0][len("initial>"):].split(',')
         original[0] = initial_genes
         number_of_mutable_aa = len(initial_genes)
-    elif split_text[0][0] == ">":
+    elif split_text[0] == SUBSTITUTIONS:
         # read allowed substitutions for mutations per position
-        if split_text[0][1:] == "":
+        if len(split_text) == 1:
             # empty, allow all mutations
             allowed_mutations.append(['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M',
                                       'F', 'P', 'S', 'T', 'W', 'Y', 'V'])
         else:
             # not empty, allow only specified mutations
-            allowed = split_text[0][1:].split(',')
+            allowed = split_text[1].split(',')
             allowed_mutations.append(allowed)
     elif split_text[0] == AA_PATH:
         # residue id and/or path, depends on the used tools TODO argument check
@@ -313,12 +322,12 @@ for line in initial_settings_file_content:
             protein_path = str(split_text[1])
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
-    elif split_text[0] == MODE:
+    elif split_text[0] == TASK_TYPE:
         # modification mode
         mode = str(split_text[1])
-        if mode != MODE_LIGAND_BINDING:
+        if not mode in TASKS:
             exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: "
-                 + MODE_LIGAND_BINDING)
+                 + str(TASKS))
     elif split_text[0] == CPU_CORE_NUMBER:
         # number of usable cpu cores
         try:
@@ -335,6 +344,15 @@ for line in initial_settings_file_content:
             random.seed(split_text[1])
         except IndexError as e:
             exit("Error in line " + str(line_index) + ": Missing argument, the seed.")
+    elif split_text[0] == "":
+        pass
+
+    elif (split_text[0] == MutateDockScoreModule.MODULE_PARAM_MUTATE
+            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_APPLY
+            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_SCORE
+            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_FOLD):
+        module_params.append(split_text)
+
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
@@ -342,8 +360,9 @@ for line in initial_settings_file_content:
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
 if number_of_mutable_aa != len(allowed_mutations):
-    exit("Error in initial settings file: Number of substitutions per position does not match with the number"
+    print("Error in initial settings file: Number of substitutions per position does not match with the number"
          "of mutable amino acids in the original protein!")
+    exit("use equal amount of '" + AA_PATH + "' and '" + SUBSTITUTIONS + "'!")
 if len(amino_acid_paths) != len(allowed_mutations):
     exit("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
          "are not equal!")
@@ -370,7 +389,7 @@ else:
 if module_name_mutate == "":
     exit("Error in initial settings file: You have to specify the mutation-module via \"" + MODULE_NAME_MUTATE + "\"!")
 if module_name_dock == "":
-    exit("Error in initial settings file: You have to specify the docking-module via \"" + MODULE_NAME_DOCK + "\"!")
+    exit("Error in initial settings file: You have to specify the docking-module via \"" + MODULE_NAME_APPLY + "\"!")
 if module_name_score == "":
     exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
 if module_name_fold == "":
@@ -381,6 +400,13 @@ if module_name_fold == "":
 print("import specified modules...")
 MutateDockScoreModule.init(module_name_mutate, module_name_dock, module_name_score, module_name_fold)
 MutateDockScoreModule.check_imported_modules()
+
+# apply module parameters
+for module_param_list in module_params:
+    returned_value = MutateDockScoreModule.handle_module_params(module_param_list)
+    if returned_value is not None:
+        # TODO maybe work with return values
+        pass
 
 print("IMPORTS AND FILE LOADINGS DONE!\n")
 # print loaded info summary
@@ -423,9 +449,9 @@ def update_history_scores(input_population):
     """
     # check all individuals from population, since these are new
     for individual in input_population:
-        for entry in total_history:
-            if entry[0] == individual[0]:
-                entry[1] = individual[1]
+        for history_entry in total_history:
+            if history_entry[0] == individual[0]:
+                history_entry[1] = individual[1]
     return
 
 
@@ -568,6 +594,7 @@ def get_new_random_mutant(parent, rec_depth=0):
                 return
 
     total_history.append(new_mutant)
+    evolution_track.append([parent, new_mutant])
     iterationCounts[ITERATION_COUNT_MUTATION_INDEX] += 1
     return new_mutant
 
@@ -583,7 +610,7 @@ def get_random_mutants(parent, number_of_new_mutants):
     mutants = []
     # generate several mutants
     for m in range(number_of_new_mutants):
-        # generate new individual, if available. Start at recursion depth 0.
+        # generate new individual, if available
         new_mutant = get_new_random_mutant(parent)
         if new_mutant is not None:
             # only keep new individuals
@@ -887,11 +914,13 @@ def select_fittest_by_fraction(fraction_percent, random_picks_percent, input_pop
     # return inputPopulation, if input values are not valid
     if fraction_percent < 0 or fraction_percent > 1:
         if PRINT_OUT:
-            print("Warning: 'fractionPercent' value in 'SelectFittestByFraction' is out of range!")
+            print("Warning: 'fractionPercent' value in 'SelectFittestByFraction' is out of range!"
+                  "Whole population was kept.")
         return input_population
     if random_picks_percent < 0 or random_picks_percent > 1:
         if PRINT_OUT:
-            print("Warning: 'randomPicksPercent' value in 'SelectFittestByFraction' is out of range!")
+            print("Warning: 'randomPicksPercent' value in 'SelectFittestByFraction' is out of range!"
+                  "Whole population was kept.")
         return input_population
 
     # calculate number of individuals being selected
@@ -1048,19 +1077,27 @@ def check_routine():
                         split_command[1]) + ". Must be an integer"
             elif split_command[0] == SELECT:
                 try:
-                    selection_param = float(split_command[1])
-                    if selection_param < 0:
+                    selection_param1 = float(split_command[1])
+                    # catch negative values
+                    if selection_param1 < 0:
                         error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                            split_command[1]) + ". Must be >= 0"
+                            selection_param1) + ". Must be >= 0"
+                    # check second parameter if existent
                     if len(split_command) > 2:
                         try:
-                            selection_param = float(split_command[2])
-                            if selection_param < 0:
+                            selection_param2 = float(split_command[2])
+                            # catch negative values
+                            if selection_param2 < 0:
                                 error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                                    split_command[1]) + ". Must be >= 0"
+                                    selection_param2) + ". Must be >= 0"
+                            # check if second parameter is float for fraction selection
+                            if selection_param1 is float:
+                                if selection_param2 > 1:
+                                    error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                                        selection_param2) + ". Must be >= 0 and <= 1"
                         except ValueError:
                             error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                                split_command[1]) + ". Must be float"
+                                split_command[2]) + ". Must be float or int"
                 except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
                         split_command[1]) + ". Must be float or integer"
@@ -1132,7 +1169,7 @@ def perform_routine(input_population):
                 repetition_number = int(split_command[1])
                 input_population = perform_recombination_classic(input_population, repetition_number)
             elif split_command[0] == SELECT:
-                # select number or of fraction of mutants
+                # select number or fraction of mutants
                 selection_param1 = float(split_command[1])
                 if len(split_command) > 2:
                     selection_param2 = float(split_command[2])
@@ -1142,6 +1179,7 @@ def perform_routine(input_population):
                 # check selection method
                 if selection_param1 > 1:
                     # select by number
+                    selection_param2 = int(selection_param2)
                     input_population = select_fittest_by_number(int(selection_param1), int(selection_param2),
                                                                 input_population)
                 elif selection_param1 >= 0:
@@ -1227,6 +1265,8 @@ except PermissionError as e:
 # prepare and run evolution
 # init variables for evolution
 total_history = []
+evolutionary_trees = []
+evolution_track = []
 iterationCounts = [0, 0]
 mds.set_values(original, out_path, protein_path, amino_acid_paths)
 print("Start preparing tools...")
@@ -1300,6 +1340,27 @@ print("Number of accepted recombination products: " + str(iterationCounts[ITERAT
 save_output(population, best_scores, average_scores)
 end_time = datetime.datetime.now()
 print("Run time: " + str(end_time - start_time))
+
+# build evolution tree
+evolutionary_trees = []
+for individual in population:
+    for entry in evolution_track:
+        if entry[1][0] == individual[0]:
+            evolutionary_trees.append([individual, entry[0]])
+run = True
+while run:
+    run = False
+    for tree in evolutionary_trees:
+        for entry in evolution_track:
+            if tree[len(tree) - 1][0] == entry[1][0]:
+                run = True
+                tree.append(entry[0])
+for tree in evolutionary_trees:
+    print(len(tree))
+    print(tree)
+    pass
+
+
 
 # Plot results
 if PLOT:

@@ -1,4 +1,14 @@
 
+# try importing PyRosetta modules
+try:
+    from pyrosetta import init, get_fa_scorefxn
+    from pyrosetta.rosetta.core.pose import Pose
+
+except ImportError as e:
+    exit("ImportError in the module \"pyrosetta\": " + str(e))
+
+init()
+
 
 def is_scoring_module():
     """
@@ -8,7 +18,7 @@ def is_scoring_module():
     return True
 
 
-def calculate_fitness(mutations, out_path, amino_acid_paths, protein_code):
+def calculate_fitness(docking_results):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
     adapt the backbone to the change. Results are saved in a new pdb file. During this process a pml file is
@@ -21,17 +31,16 @@ def calculate_fitness(mutations, out_path, amino_acid_paths, protein_code):
     :return: None. The generated files are of interest.
     """
 
-    score = 0
-    for aa in mutations:
-        if aa != '':
-            score += ord(aa)
-    if score % 5 == 0:
-        score += 50
-    if score % 3 == 0:
-        score -= 60
-    if mutations[0] == 'A':
-        score += 100
-    score = score / len(mutations)
+    if docking_results is None:
+        return 0
+
+    # get score function
+    score_fxn = get_fa_scorefxn()
+    print(docking_results)
+
+    score_sum = 0
+    for pose in docking_results:
+        score_sum += score_fxn(pose)
+    score = (score_sum / float(len(docking_results))) * -1
 
     return score
-
