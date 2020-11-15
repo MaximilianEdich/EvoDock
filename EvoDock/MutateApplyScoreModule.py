@@ -6,13 +6,12 @@ protein. Next the protein will be used in docking and get a score.
 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
-
 import importlib
 
-global mutate_mod
-global apply_mod
-global score_mod
-global fold_mod
+mutate_mod = None
+apply_mod = None
+score_mod = None
+fold_mod = None
 
 MODULE_PARAM_MUTATE = "-module-param-mutate"
 MODULE_PARAM_APPLY = "-module-param-apply"
@@ -22,7 +21,8 @@ MODULE_PARAM_FOLD = "-module-param-fold"
 
 def init(mutate, apply, score, fold):
     """
-    Import desired modules.
+    Try to import desired modules. Modules are not validated in this step.
+    :return: None.
     """
     mutate_mod_name = mutate
     apply_mod_name = apply
@@ -65,6 +65,11 @@ def init(mutate, apply, score, fold):
 
 
 def check_imported_modules():
+    """
+    Check if the imported modules are of the correct type (if mutagenesis module is indeed a mutagenesis module and
+    so on).
+    :return: True, if all specified modules are valid.
+    """
     try:
         mutate_mod.is_mutation_module()
     except AttributeError:
@@ -72,7 +77,7 @@ def check_imported_modules():
     try:
         apply_mod.is_application_module()
     except AttributeError:
-        exit("Error, specified docking module is not an application module!")
+        exit("Error, specified application module is not an application module!")
     try:
         score_mod.is_scoring_module()
     except AttributeError:
@@ -81,23 +86,40 @@ def check_imported_modules():
         fold_mod.is_folding_module()
     except AttributeError:
         exit("Error, specified folding module is not a folding module!")
+    return True
 
-    return
+
+def validate_module_data(protein_path, out_path):
+    """
+    Passes the validation task to the single modules and checks, if all settings and inputs for each module
+    are validated.
+    :param protein_path: Path to the input PDB file, which represents the wild type protein.
+    :param out_path: Path to the output folder of this run.
+    :return: True, if all modules have validated their settings and input.
+    """
+    mutate_mod.validate_data(protein_path, out_path)
+    apply_mod.validate_data(protein_path, out_path)
+    score_mod.validate_data(protein_path, out_path)
+    fold_mod.validate_data(protein_path, out_path)
+    print("All modules validated!\n")
+    return True
 
 
-class MutateDockScore:
+class MutateApplyScore:
     def __init__(self):
         self.original_individual = None
         self.out_path = None
         self.protein_path = None
         self.amino_acid_paths = None
+        self.use_specific_mutate_out = True
         return
 
-    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths):
+    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out):
         self.original_individual = original_individual
         self.out_path = out_path
         self.protein_path = protein_path
         self.amino_acid_paths = amino_acid_paths
+        self.use_specific_mutate_out = use_specific_mutate_out
         return
 
 
@@ -119,6 +141,7 @@ def prepare_tool(protein_path, out_path):
     :return:
     """
     mutate_mod.prepare_files_for_tool(protein_path, out_path)
+    apply_mod.prepare_files_for_tool(protein_path, out_path)
 
     return
 
@@ -126,57 +149,69 @@ def prepare_tool(protein_path, out_path):
 def handle_module_params(params):
     if params[0] == MODULE_PARAM_MUTATE:
         return mutate_mod.parameter_handling(params[1:])
+    if params[0] == MODULE_PARAM_APPLY:
+        return apply_mod.parameter_handling(params[1:])
 
     return
 
 
-def generate_docking_input(mutations, run_out_path, protein_path, amino_acid_paths, fold_instead_mutate):
+def generate_application_input(mutations, mutant_out_path, protein_path, amino_acid_paths, fold_instead_mutate):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
     adapt the backbone to the change. Results are saved in new generated pdb files.
     :param fold_instead_mutate:
     :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
     :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
-    :param run_out_path: The path leading to the output files.
+    :param mutant_out_path: The path leading to the output files.
     :return: None. The generated files are of interest.
     """
-    results = []
     if fold_instead_mutate:
-        results = fold_mod.generate_docking_input(protein_path, amino_acid_paths, mutations, run_out_path)
+        results = fold_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
     else:
-        results = mutate_mod.generate_docking_input(protein_path, amino_acid_paths, mutations, run_out_path)
+        results = mutate_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
 
     return results
 
 
-def perform_docking(mutations, run_out_path, amino_acid_paths, protein_path, docking_input):
+def run_application(mutations, mutant_out_path, amino_acid_paths, protein_path, application_input, use_specific_mutate_out):
     """
 
     :return:
     """
 
-    apply_mod.perform_docking(docking_input, run_out_path)
-    #dock_mod.perform_docking(mutations, run_out_path, amino_acid_paths, protein_path)
+    if use_specific_mutate_out:
+        # simply use output from mutagenesis as application input
+        results = apply_mod.perform_application(application_input, mutant_out_path)
+    else:
+        # generate new application input by loading pdb files.
+        new_input = []
+        suffix = 0
+        for _ in application_input:
+            suffix += 1
+            mutant_variant = mutant_out_path + str(suffix) + ".pdb"
+            new_input.append(mutant_variant)
 
-    return
+        results = apply_mod.perform_application_with_pdb(new_input, mutant_out_path)
+
+    return results
 
 
-def calculate_fitness_score(mutations, run_out_path, amino_acid_paths, protein_path, docking_results):
+def calculate_fitness_score(mutations, mutant_out_path, amino_acid_paths, protein_path, specific_results):
     """
-    Uses data from mutagenesis and the docking to calculate a fitness score.
+    Uses data from mutagenesis and the application to calculate a fitness score.
     :param target_individual: An individual in the form of [g, s], where s is the score
     value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
     gene represents an amino acid.
     :return: the calculated score as the individuals fitness.
     """
-
-    score = score_mod.calculate_fitness(docking_results)
-    #score = score_mod.calculate_fitness(mutations, run_out_path, amino_acid_paths, protein_path)
+    sfx_mut = mutate_mod.get_score_function()
+    sfx_apply = apply_mod.get_score_function()
+    score = score_mod.calculate_fitness(specific_results, sfx_mut, sfx_apply)
 
     return score
 
 
-def get_score(target_individual, mds: MutateDockScore, fold_instead_mutate):
+def get_score(target_individual, mds: MutateApplyScore, fold_instead_mutate):
     """
     Use the given input to generate a mutant and perform a ligand docking, both via external software tools.
     Output information of both tools is then used to determine a score that is usable as a fitness score for evolution.
@@ -189,9 +224,9 @@ def get_score(target_individual, mds: MutateDockScore, fold_instead_mutate):
     """
 
     # define output-folder for this mutant
-    run_out_path = mds.out_path + "/Mutant"
+    mutant_out_path = mds.out_path + "/Mutant"
     for x in target_individual[0]:
-        run_out_path += "_" + str(x)
+        mutant_out_path += "_" + str(x)
 
     # identify real mutations
     mutations = []
@@ -203,13 +238,24 @@ def get_score(target_individual, mds: MutateDockScore, fold_instead_mutate):
             # mutation detected
             mutations.append((target_individual[0][k]))
 
-    # generate new pdb as input for docking
-    docking_input = generate_docking_input(mutations, run_out_path, mds.protein_path, mds.amino_acid_paths, fold_instead_mutate)
+    # do error prevention
+    if not mds.use_specific_mutate_out:
+        mutate_mod.parameter_handling([mutate_mod.SAVE_PDB, mutate_mod.TRUE])
 
+    # generate mutagenesis output as input for the application and keep results for scoring
+    # specific results stores in element 0 the mutagenesis results and in element 1 the application results
+    # these results are specific to the module which generate them and may cannot be interpreted by the next pipeline
+    # modules. Alternatively, each module generates PDBs in the form of:
+    # Mutant_A_B_C1.pdb, where A, B, C, are placeholders for the amino acid on the respective residue and the number
+    # at the end shows which pose of this mutant it is.
+    specific_results = [[], []]
+
+    # TODO instead mutating: load fixed pdbs. If not available, use mutate
+
+    specific_results[0] = generate_application_input(mutations, mutant_out_path, mds.protein_path, mds.amino_acid_paths, fold_instead_mutate)
     # use fresh input for protein-ligand docking
-    #docking_results = perform_docking(mutations, run_out_path, mds.amino_acid_paths, mds.protein_path, docking_input)
-
+    specific_results[1] = run_application(mutations, mutant_out_path, mds.amino_acid_paths, mds.protein_path, specific_results[0], mds.use_specific_mutate_out)
     # use results to calculate fitness score
-    score = calculate_fitness_score(mutations, run_out_path, mds.amino_acid_paths, mds.protein_path, docking_input)
+    score = calculate_fitness_score(mutations, mutant_out_path, mds.amino_acid_paths, mds.protein_path, specific_results)
 
     return score

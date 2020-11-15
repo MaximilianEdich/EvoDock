@@ -1,9 +1,8 @@
 # try importing PyRosetta modules
 try:
-    from pyrosetta import init, toolbox, pose_from_file, dump_pdb, get_fa_scorefxn, standard_packer_task
-    from pyrosetta.toolbox import mutate_residue, cleanATOM
+    from pyrosetta import init, pose_from_file, get_fa_scorefxn, create_score_function, standard_packer_task
+    from pyrosetta.toolbox import mutate_residue
     from pyrosetta.rosetta.core.pose import Pose
-    from pyrosetta.rosetta.core.pack.task import PackerTask
     from pyrosetta.rosetta.protocols.relax import FastRelax
     from pyrosetta.rosetta.protocols.relax import ClassicRelax
     from pyrosetta.rosetta.protocols.minimization_packing import PackRotamersMover
@@ -14,8 +13,11 @@ try:
 
     from pyrosetta.rosetta.core.kinematics import MoveMap
 
+    from pyrosetta.rosetta.core.scoring import ScoreFunction
+    from pyrosetta.rosetta.core.scoring import ScoreType
+
 except ImportError as e:
-    exit("ImportError in the module \"pyrosetta\": " + str(e))
+    exit("MutateByPyRosetta: ImportError: " + str(e))
 
 init()
 
@@ -39,6 +41,7 @@ MOVER_ID_SHEAR_MOVER = "SHEAR-MOVER"
 BACKBONE_MOVERS.append(MOVER_ID_SHEAR_MOVER)
 
 RELAX = "-relax"
+EXTRA_RELAX = "-extra-relax"
 RELAX_FAST = "FAST-RELAX"
 RELAX_CLASSIC = "CLASSIC-RELAX"
 RELAX_BOTH = "RELAX-BOTH"
@@ -50,14 +53,66 @@ MAKE_POSES = "-make-poses"
 ROTAMER_MOVER = "-rotamer-mover"
 BACKBONE_MOVER = "-backbone-mover"
 
+score_function = get_fa_scorefxn()
+
 relax_mode = None
-save_pdb = True
+save_pdb = False
 pack_radius = 8
 number_of_rotamer_moves = 1
 number_of_backbone_moves = 1
 make_poses = 1
 rotamer_mover_id = MOVER_ID_ROTAMER_TRIALS_MIN_MOVER
 backbone_mover_id = NONE
+kT = 1.0
+n_moves = 5
+extra_relax = None
+
+
+def is_mutation_module():
+    """
+    This function is essential to verify, that it is a mutation module and is required, so it cannot be used as
+    a module of a different type.
+    """
+    return True
+
+
+def validate_data(protein_path, out_path):
+    """
+    Checks, if all settings and inputs are valid.
+    :param protein_path: Path to the input PDB file, which represents the wild type protein.
+    :param out_path: Path to the output folder of this run.
+    :return: True, all checks are valid.
+    """
+    # TODO check if it is pose
+    pose = pose_from_file(protein_path)
+    print("MutateByPyRosetta: Pose is validated!")
+    print("MutateByPyRosetta: Inputs are validated!")
+    return True
+
+
+def set_score_function(path_name, arg1_is_path=True):
+    """if arg1_is_path:
+        # open file and create new score function
+        global score_function
+        score_function = ScoreFunction()
+        score_function.set_weight(ScoreType.fa_intra_rep, 0.004)
+    else:
+        # arg1 is string, try to load respective score function
+        global score_function
+        score_function = create_score_function(path_name)"""
+
+    return
+
+
+def get_score_function():
+    return score_function
+
+
+def get_initial_amino_acids(protein_path, amino_acid_paths):
+    pose = pose_from_file(protein_path)
+    for aa_pos in amino_acid_paths:
+        print(pose.residue(int(aa_pos)).name())
+    return
 
 
 def parameter_handling(params):
@@ -67,6 +122,14 @@ def parameter_handling(params):
             relax_mode = None
         elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC or params[1] == RELAX_BOTH:
             relax_mode = params[1]
+        else:
+            exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
+    elif params[0] == EXTRA_RELAX:
+        global extra_relax
+        if params[1] == NONE:
+            extra_relax = None
+        elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC:
+            extra_relax = params[1]
         else:
             exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
     elif params[0] == SAVE_PDB:
@@ -137,28 +200,19 @@ def parameter_handling(params):
                 exit("Error in MutateByPyRosetta: Invalid backbone mover defined!")
         except IndexError:
             exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
-
     else:
         exit("ERROR in MutateByPyRosetta: unknown flag: " + str(params))
 
     return
 
 
-def is_mutation_module():
-    """
-    This function is essential to verify, that it is a mutation module and is required, so it cannot be used as
-    a module of a different type.
-    """
-    return True
-
-
 def preparation_result_path(protein_path, out_path):
-    prot_split = protein_path.split('/')
-    prot_name = prot_split[len(prot_split) - 1]
     if not relax_mode is None:
+        prot_split = protein_path.split('/')
+        prot_name = prot_split[len(prot_split) - 1]
         return out_path + "/" + prot_name[:(len(prot_name) - 3)] + "relaxed.pdb"
     else:
-        return prot_name
+        return protein_path
 
 
 def prepare_files_for_tool(protein_path, out_path):
@@ -166,14 +220,13 @@ def prepare_files_for_tool(protein_path, out_path):
     Prepares input files for the main task.
     :return: True, if preparation was successful.
     """
-
     pose = pose_from_file(protein_path)
 
-    # set score function
+    # set and check score function
     score_fxn = get_fa_scorefxn()
 
     # relax structure
-    if not relax_mode is None:
+    if relax_mode is not None:
         test_pose = Pose()
         test_pose.assign(pose)
         score1 = score_fxn(pose)
@@ -195,29 +248,20 @@ def prepare_files_for_tool(protein_path, out_path):
             c_relax.apply(test_pose)
             score3 = score_fxn(test_pose)
             content += "classic: " + str(score3) + "\n"
-        run_info_file = open(out_path + "/MUTATE_information.txt", 'w')
+        run_info_file = open(out_path + "/RELAX_information.txt", 'w')
         run_info_file.write(content)
         run_info_file.close()
 
     return True
 
 
-def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
+def generate_application_input(protein_path, out_path, amino_acid_paths, mutations):
     """
-    Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
-    adapt the backbone to the change. Results are saved in a new pdb file. During this process a pml file is
-    generated, containing the PyMOL script that performs the mutagenesis.
-    :param protein_path: The protein accession code, by wich the protein structure can be fetched with.
-    :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
-    :param out_path: The path leading to the output files specific to the mutation.
-    :param mutations: List of mutations relative to the original protein. An empty string represents no mutation while
-    any substitution is represented by the given single letter code of the amino acid.
-    :return: None. The generated files are of interest.
     """
     print(protein_path)
 
     # get score function
-    score_fxn = get_fa_scorefxn()
+    score_fxn = score_function
 
     # load pose
     is_original = True
@@ -237,13 +281,6 @@ def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
                 mutate_residue(pose, int(amino_acid_paths[index]), mut)
         index += 1
 
-    if is_original:
-        # skip time consuming calculations, just save copy to work with
-        if save_pdb:
-            load_pose.dump_pdb(out_path + ".pdb")
-        docking_input = [load_pose]
-        return docking_input
-
     # make residues of interest packable and calculate centers of change
     index = 0
     centers = []
@@ -253,6 +290,7 @@ def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
         index += 1
     # make residues in range of these packable
     pack_list = []
+    # rosetta is 1-indexed, so do in range(1, n+1)
     for i in range(1, load_pose.total_residue() + 1):
         for c in centers:
             if c.distance_squared(load_pose.residue(i).nbr_atom_xyz()) <= pack_radius * pack_radius:
@@ -270,7 +308,7 @@ def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
         move_map.set_bb(p, True)
     print(move_map)
     # for each pose
-    docking_input = []
+    mutagenesis_output = []
     suffix = 0
     for pose in poses:
         suffix += 1
@@ -286,12 +324,11 @@ def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
 
         # init Rotamer Mover and apply repacking
         backbone_mover = None
-        kT = 1.0
-        n_moves = 5
+
         if backbone_mover_id == MOVER_ID_SMALL_MOVER:
-            backbone_mover = SmallMover(move_map, 1.0, 5)
+            backbone_mover = SmallMover(move_map, kT, n_moves)
         elif backbone_mover_id == MOVER_ID_SHEAR_MOVER:
-            backbone_mover = ShearMover(move_map, 1.0, 5)
+            backbone_mover = ShearMover(move_map, kT, n_moves)
 
         # init Rotamer Mover and apply repacking
         print(packer_task)
@@ -304,24 +341,31 @@ def generate_docking_input(protein_path, amino_acid_paths, mutations, out_path):
             rotamer_mover = RotamerTrialsMover(score_fxn, packer_task)
 
         # apply bb and rotamer
-        print(score_fxn(pose))
+        print("Score " + str(mutations) + str(suffix) + " : " + str(score_fxn(pose)))
         if backbone_mover is not None:
-            print("BB!")
             for x in range(number_of_backbone_moves):
                 backbone_mover.apply(pose)
-        print(score_fxn(pose))
+                print("Score " + str(mutations) + str(suffix) + " : " + str(score_fxn(pose)))
+        print("Score " + str(mutations) + str(suffix) + " : " + str(score_fxn(pose)))
         if rotamer_mover is not None:
-            print("ROTAMER!")
             for x in range(number_of_rotamer_moves):
                 rotamer_mover.apply(pose)
-                print(score_fxn(pose))
+                print("Score " + str(mutations) + str(suffix) + " : " + str(score_fxn(pose)))
+
+        if not extra_relax is None:
+            print("\nrelax structure...\n")
+            if extra_relax == RELAX_FAST:
+                f_relax = FastRelax()
+                f_relax.set_scorefxn(score_fxn)
+                f_relax.apply(pose)
+            if extra_relax == RELAX_CLASSIC:
+                c_relax = ClassicRelax()
+                c_relax.set_scorefxn(score_fxn)
+                c_relax.apply(pose)
 
         # save pdb
         if save_pdb:
-            if make_poses == 1:
-                suffix = ""
             pose.dump_pdb(out_path + str(suffix) + ".pdb")
-        docking_input.append(pose)
+        mutagenesis_output.append(pose)
 
-
-    return docking_input
+    return mutagenesis_output

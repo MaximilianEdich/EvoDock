@@ -5,6 +5,7 @@ created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
 # region Imports
+print("Import core modules...")
 try:
     import random
 except ImportError as e:
@@ -43,9 +44,9 @@ except ImportError as e:
          "Error Message: " + str(e))
 
 try:
-    import MutateDockScoreModule
+    import MutateApplyScoreModule
 except ImportError as e:
-    MutateDockScoreModule = None
+    MutateApplyScoreModule = None
     exit("Error: Import of \"MutateDockScoreModule\" failed. Make sure to provide this module, since it is essential. "
          "This module is part of EvoDock, so probably something went wrong with the installation. "
          "Make sure, that all EvoDock modules are in the same folder. Check the documentation for more information. "
@@ -63,6 +64,7 @@ if PLOT:
 
 # start run time counter
 start_time = datetime.datetime.now()
+print("start timer")
 
 # region String Vars and Indecies
 # initial settings file values
@@ -77,6 +79,7 @@ TASKS.append(TASK_LIGAND_BINDING)
 
 CPU_CORE_NUMBER = "-cpu"
 SEED = "-seed"
+LOOK_UP_TABLE = "-look-up-table-path"
 INITIAL_POPULATION = "-init-pop-run-mode"
 # init-pop create_and_quit <pop-size>
 INITIAL_POPULATION_NEW_STOP = "create-and-quit"
@@ -92,15 +95,16 @@ PROTEIN_PATH = "-prot-path"
 AA_PATH = "-res-id"
 SUBSTITUTIONS = "-substitutions"
 
+TRUE = "TRUE"
+FALSE = "FALSE"
 MODULE_NAME_MUTATE = "-mutate"
 MODULE_NAME_APPLY = "-apply"
 MODULE_NAME_SCORE = "-score"
 MODULE_NAME_FOLD = "-fold"
+USE_SPECIFIC_MUTATE_OUT = "-use-specific-mutate-out"
 
 
-
-
-# strings for commands
+# strings for routine commands
 MUTATE = "mutate"
 MUTATE_PLUS = "mutate+"
 RECOMBINATION = "recombine"
@@ -129,14 +133,18 @@ parser.add_argument("-s", "--settings", type=str, required=True,
                          " for the full list of commands.")
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
                                                                      "for a list of all commands.")
-parser.add_argument("-pre", "--prefix", type=str, required=False, help="Prefix of the output folder.")
 parser.add_argument("-o", "--out", type=str, required=False, help="Path to desired output destination.")
+parser.add_argument("-doc", "--documentation", type=str, required=False, help="Path to desired output destination.")
 args = parser.parse_args()
 # TODO specify optional technical settings
 # endregion
 
-# region Specification of initial essential and optional values
-mds = MutateDockScoreModule.MutateDockScore()
+
+# TODO args.documentation print out all commands of initial settings file + commands of specified modules
+
+
+# region Specification of initial essential and optional values, set default values
+mds = MutateApplyScoreModule.MutateApplyScore()
 initial_population_run_mode = ""
 initial_population_create_mode = ""
 start_population_size = 0
@@ -155,10 +163,13 @@ number_of_mutable_aa = 0
 allowed_mutations = []
 defined_target_score = False
 usable_cpu = multi_p.cpu_count()
+look_up_table_path = ""
+use_specific_mutate_out = None
 # endregion
 
 # region load files
 # # try to load routine settings file
+print("load initial settings file content and routine file content...")
 routine_file_content = ""
 try:
     routine_file = open(args.routine, 'r')
@@ -209,7 +220,8 @@ def error_msg_create_init_pop_options():
 
 # endregion
 
-# region check initial settings file content
+# region check initial settings file content and validate input format
+print("check initial settings file content flags and validate input format...")
 line_index = 0
 module_params = []
 # TODO check exceptions (IndexError)
@@ -272,6 +284,20 @@ for line in initial_settings_file_content:
             exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
 
+    elif split_text[0] == USE_SPECIFIC_MUTATE_OUT:
+        # specify if the specific mutate output should be used as input for the application module. May cause errors
+        # if modules are not compatible!
+        try:
+            setting = str(split_text[1])
+            if setting == TRUE:
+                use_specific_mutate_out = True
+            elif setting == FALSE:
+                use_specific_mutate_out = False
+            else:
+                exit("Error in line " + str(line_index) + " of the initial settings file. Illegal argument!"
+                                                          "\n" + setting + ". Expected are: 'TRUE' or 'FALSE'")
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
     elif split_text[0] == MODULE_NAME_MUTATE:
         # specified mutation module
         try:
@@ -306,7 +332,7 @@ for line in initial_settings_file_content:
     elif split_text[0] == SUBSTITUTIONS:
         # read allowed substitutions for mutations per position
         if len(split_text) == 1:
-            # empty, allow all mutations
+            # empty, allow all mutations TODO fix list on top and make it adjustable
             allowed_mutations.append(['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M',
                                       'F', 'P', 'S', 'T', 'W', 'Y', 'V'])
         else:
@@ -344,19 +370,26 @@ for line in initial_settings_file_content:
             random.seed(split_text[1])
         except IndexError as e:
             exit("Error in line " + str(line_index) + ": Missing argument, the seed.")
+    elif split_text[0] == LOOK_UP_TABLE:
+        try:
+            look_up_table_path = split_text[1]
+        except IndexError as e:
+            exit("Error in line " + str(line_index) + ": Missing argument, path to look-up-table.")
     elif split_text[0] == "":
         pass
 
-    elif (split_text[0] == MutateDockScoreModule.MODULE_PARAM_MUTATE
-            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_APPLY
-            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_SCORE
-            or split_text[0] == MutateDockScoreModule.MODULE_PARAM_FOLD):
+    elif (split_text[0] == MutateApplyScoreModule.MODULE_PARAM_MUTATE
+          or split_text[0] == MutateApplyScoreModule.MODULE_PARAM_APPLY
+          or split_text[0] == MutateApplyScoreModule.MODULE_PARAM_SCORE
+          or split_text[0] == MutateApplyScoreModule.MODULE_PARAM_FOLD):
         module_params.append(split_text)
 
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
-# # catch undefined essential values
+# endregion
+
+# region catch undefined essential values
 if not original[0]:
     exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
 if number_of_mutable_aa != len(allowed_mutations):
@@ -383,7 +416,6 @@ if protein_path != "":
         exit("Error in initial settings file: Specified protein file not found!")
     except PermissionError:
         exit("Error in initial settings file: No permission to open file!")
-    # TODO check if specified tools can work with this file: PyRosetta: is it cleaned and a pdb?
 else:
     exit("Error in initial settings file: You have to specify the \"" + PROTEIN_PATH + " leading to your .pdb\"!")
 if module_name_mutate == "":
@@ -394,31 +426,108 @@ if module_name_score == "":
     exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
 if module_name_fold == "":
     exit("Error in initial settings file: You have to specify the folding-module via \"" + MODULE_NAME_FOLD + "\"!")
+if use_specific_mutate_out is None:
+    exit("Error in initial settings file: You have to specify which mutagenesis output is used via"
+         " \"" + USE_SPECIFIC_MUTATE_OUT + " <b>\", with <b> = 'TRUE' or 'FALSE'!")
 
 # endregion
 
-print("import specified modules...")
-MutateDockScoreModule.init(module_name_mutate, module_name_dock, module_name_score, module_name_fold)
-MutateDockScoreModule.check_imported_modules()
+# region create output folder
+# get start time of current run in string format
+month = str(start_time.month)
+if len(month) == 1:
+    month = "0" + month
+day = str(start_time.day)
+if len(day) == 1:
+    day = "0" + day
+hour = str(start_time.hour)
+if len(hour) == 1:
+    hour = "0" + hour
+minute = str(start_time.minute)
+if len(minute) == 1:
+    minute = "0" + minute
+# build string containing start time
+run_string = str(start_time.year) + "-" + month + "-" + day + "_" + hour + "-" + minute
+# take path to destination
+if args.out is None:
+    out_destination = ""
+else:
+    out_destination = str(args.out)
+
+# build output path and create folder
+out_path = out_destination + "EvoDock_output_run_" + run_string
+try:
+    Path(out_path).mkdir(parents=True, exist_ok=False)
+except FileExistsError:
+    # repeat process with different number suffixes until successful
+    suffix = 2
+    folder_created = False
+    while not folder_created:
+        try:
+            Path(out_path + "_" + str(suffix)).mkdir(parents=True, exist_ok=False)
+            folder_created = True
+        except FileExistsError:
+            suffix += 1
+    out_path = out_path + "_" + str(suffix)
+except FileNotFoundError as e:
+    exit("Directory not found. " + str(e))
+except PermissionError as e:
+    exit("No permission for directory. " + str(e))
+# endregion
+
+# region MASM set up
+# init MASM
+print("initialize MutateApplyScoreModule: import specified modules...")
+MutateApplyScoreModule.init(module_name_mutate, module_name_dock, module_name_score, module_name_fold)
+MutateApplyScoreModule.check_imported_modules()
 
 # apply module parameters
+print("\nset up specified modules with specific module parameters...")
 for module_param_list in module_params:
-    returned_value = MutateDockScoreModule.handle_module_params(module_param_list)
+    returned_value = MutateApplyScoreModule.handle_module_params(module_param_list)
     if returned_value is not None:
         # TODO maybe work with return values
         pass
 
+# validate and prepare tools and maybe update protein path
+MutateApplyScoreModule.validate_module_data(protein_path, out_path)
+MutateApplyScoreModule.prepare_tool(protein_path, out_path)
+protein_path = MutateApplyScoreModule.preparation_result_path(protein_path, out_path)
+print(protein_path)
+mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out)
+
+# endregion
+
 print("IMPORTS AND FILE LOADINGS DONE!\n")
-# print loaded info summary
+# print loaded info summary TODO load initial aa
 print("original individual + amino acid paths:")
 print(original[0])
 print(amino_acid_paths)
 print("\nNumber of cores, detected for multi-processing: " + str(multi_p.cpu_count()))
 print("Use of multi-processing is restricted to: " + str(usable_cpu) + "\n")
 
-# TODO load optional history as look up table for score to avoid long re-calculations
+# region look up table
 look_up_scores = []
+if look_up_table_path != "":
+    print("Load look up table")
+    content = []
+    try:
+        look_up_file = open(look_up_table_path, 'r')
+        content = look_up_file.readlines()
+        look_up_file.close()
 
+    except FileNotFoundError:
+        exit("File for look up table not found! " + str(look_up_table_path))
+    except PermissionError:
+        exit("Error: File for look up table can not be opened, permission denied!")
+    # TODO check format
+    for line in content[1:]:
+        load_individual = [[], 0]
+        content = line.strip().split(';')
+        load_individual[1] = float(content[1])
+        load_individual[0] = ast.literal_eval(content[0])
+        look_up_scores.append(load_individual)
+# endregion
 
 # region Score Functions
 def get_and_write_score(target_individual):
@@ -429,11 +538,17 @@ def get_and_write_score(target_individual):
     gene represents an amino acid.
     :return: The individual with its new calculated score as the individuals fitness.
     """
+
+    for look_up in look_up_scores:
+        if target_individual[0] == look_up[0]:
+            target_individual[1] = look_up[1]
+            return target_individual
+
     # calculate the score (by using external software) TODO check parameter and not initial setting
     if initial_population_create_mode == CREATE_VIA_MUTATE:
-        score = MutateDockScoreModule.get_score(target_individual, mds, False)
+        score = MutateApplyScoreModule.get_score(target_individual, mds, False)
     else:
-        score = MutateDockScoreModule.get_score(target_individual, mds, True)
+        score = MutateApplyScoreModule.get_score(target_individual, mds, True)
     # write the score into the individual and return score
     target_individual[1] = score
 
@@ -938,9 +1053,9 @@ def select_fittest_by_fraction(fraction_percent, random_picks_percent, input_pop
 def save_population_list(individuals, name):
     """
     Take a list containing only individuals and save it with the given name included in file name and header.
-    The header contains also the number of entries.
-    :param individuals:
-    :param name:
+    The header contains also the number of entries and consists only of the top line.
+    :param individuals: List with individuals, where each individual is a list of a genes list and a score.
+    :param name: name is included in the file name and in the header.
     :return: None.
     """
     individuals.sort(reverse=False, key=get_individuals_score_relative_to_targetScore)
@@ -990,7 +1105,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     # output history
     save_population_list(total_history, "history")
 
-    # output run info TODO finish external module params integration
+    # output run info
     # # basic run info
     current_time = datetime.datetime.now()
     run_info_file_content = "Run information of run " + run_string + "\n"
@@ -1005,6 +1120,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
         run_info_file_content += file_line
     # # External Settings
     run_info_file_content += "\n\n\nExternal Tool Settings File Contents:\n"
+    # TODO get version numbers of MutateDockScore Modules used
 
     run_info_file = open(out_path + "/EvoDock_run_information.txt", 'w')
     run_info_file.write(run_info_file_content)
@@ -1211,70 +1327,26 @@ def perform_routine(input_population):
 
 # endregion
 
-# region EvoDock Core
-# check errors in routine file
+# ## EvoDock Core
+# region check errors in routine file
 errors = check_routine()
 if len(errors) > 0:
     exit("Exit algorithm due to errors in routine file.")
 # no errors, proceed with evolution
-
-# region create output folder
-# get start time of current run in string format
-month = str(start_time.month)
-if len(month) == 1:
-    month = "0" + month
-day = str(start_time.day)
-if len(day) == 1:
-    day = "0" + day
-hour = str(start_time.hour)
-if len(hour) == 1:
-    hour = "0" + hour
-minute = str(start_time.minute)
-if len(minute) == 1:
-    minute = "0" + minute
-# build string containing start time
-run_string = str(start_time.year) + "-" + month + "-" + day + "_" + hour + "-" + minute
-# take path to destination
-if args.out is None:
-    out_destination = ""
-else:
-    out_destination = str(args.out)
-# build output path and create folder
-if args.prefix is None:
-    out_path = out_destination + "EvoDock_output_run_" + run_string
-else:
-    out_path = out_destination + str(args.prefix) + "_EvoDock_output_run_" + run_string
-try:
-    Path(out_path).mkdir(parents=True, exist_ok=False)
-except FileExistsError:
-    suffix = 2
-    folder_created = False
-    while not folder_created:
-        try:
-            Path(out_path + "_" + str(suffix)).mkdir(parents=True, exist_ok=False)
-            folder_created = True
-        except FileExistsError:
-            suffix += 1
-    out_path = out_path + "_" + str(suffix)
-except FileNotFoundError as e:
-    exit("Directory not found. " + str(e))
-except PermissionError as e:
-    exit("No permission for directory. " + str(e))
 # endregion
 
-# prepare and run evolution
-# init variables for evolution
+# region init variables and prepare evolution
 total_history = []
 evolutionary_trees = []
 evolution_track = []
 iterationCounts = [0, 0]
-mds.set_values(original, out_path, protein_path, amino_acid_paths)
-print("Start preparing tools...")
-MutateDockScoreModule.prepare_tool(protein_path, out_path)
-protein_path = MutateDockScoreModule.preparation_result_path(protein_path, out_path)
-print(protein_path)
 
-# generate random or load initial population
+if look_up_scores:
+    save_population_list(look_up_scores, "used_look_up_table")
+
+# endregion
+
+# region generate random or load initial population
 population = []
 if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     print("Generate initial Population...")
@@ -1291,7 +1363,8 @@ if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     end_time = datetime.datetime.now()
     # exit
     print("Run time: " + str(end_time - start_time))
-    exit("Initial population was successfully created. EvoDock stops here like specified in initial settings.")
+    exit("Initial population was successfully created. EvoDock stops here, since that was specified in "
+         "the initial settings.")
 elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
     # load file
     population_file_content = ""
@@ -1303,7 +1376,7 @@ elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
         exit("Error: Initial population file does not exist!")
     except PermissionError:
         exit("Error: Initial population file can not be opened, permission denied!")
-    # translate into population
+    # translate into population TODO check format
     for entry in population_file_content[1:]:
         load_individual = [[], 0]
         content = entry.strip().split(';')
@@ -1318,7 +1391,9 @@ elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
     population = generate_initial_population(start_population_size, original)
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 
-# perform the whole evolution routine
+#endregion
+
+# region perform evolution routine
 routine_results = perform_routine(population)
 population = routine_results[0]
 best_scores = routine_results[1]
@@ -1359,7 +1434,6 @@ for tree in evolutionary_trees:
     print(len(tree))
     print(tree)
     pass
-
 
 
 # Plot results

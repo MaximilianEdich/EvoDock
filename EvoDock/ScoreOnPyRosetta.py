@@ -1,13 +1,21 @@
 
 # try importing PyRosetta modules
 try:
-    from pyrosetta import init, get_fa_scorefxn
-    from pyrosetta.rosetta.core.pose import Pose
+    from pyrosetta import init
+
+    from pyrosetta.rosetta.core.scoring import ScoreFunction
+    from pyrosetta.rosetta.core.scoring import ScoreType
+
+    from pyrosetta.rosetta.protocols.ligand_docking import InterfaceScoreCalculator
+    from pyrosetta.rosetta.std import vector_std_string
 
 except ImportError as e:
-    exit("ImportError in the module \"pyrosetta\": " + str(e))
+    exit("ScoreOnPyRosetta: ImportError: " + str(e))
 
 init()
+
+weight_mutagenesis = 0
+weight_application = 1
 
 
 def is_scoring_module():
@@ -18,29 +26,59 @@ def is_scoring_module():
     return True
 
 
-def calculate_fitness(docking_results):
+def validate_data(protein_path, out_path):
     """
-    Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
-    adapt the backbone to the change. Results are saved in a new pdb file. During this process a pml file is
-    generated, containing the PyMOL script that performs the mutagenesis.
-    :param protein_code: The protein accession code, by wich the protein structure can be fetched with.
-    :param amino_acid_paths: Paths within the pdb file to the single amino acids of interest.
-    :param out_path: The path leading to the output files specific to the mutation.
-    :param mutations: List of mutations relative to the original protein. An empty string represents no mutation while
-    any substitution is represented by the given single letter code of the amino acid.
-    :return: None. The generated files are of interest.
+    Checks, if all settings and inputs are valid.
+    :param protein_path: Path to the input PDB file, which represents the wild type protein.
+    :param out_path: Path to the output folder of this run.
+    :return: True, all checks are valid.
     """
+    print("ScoreOnPyRosetta: Inputs are validated!")
+    return
 
-    if docking_results is None:
+
+def calculate_fitness(specific_results, score_function_mutagenesis, score_function_application):
+    """
+    :return:
+    """
+    if specific_results is None:
         return 0
 
-    # get score function
-    score_fxn = get_fa_scorefxn()
-    print(docking_results)
+    mutagenesis_results = specific_results[0]
+    application_results = specific_results[1]
 
-    score_sum = 0
-    for pose in docking_results:
-        score_sum += score_fxn(pose)
-    score = (score_sum / float(len(docking_results))) * -1
+    # get score functions
+    inter_face = InterfaceScoreCalculator()
+    inter_face.score_fxn(score_function_application)
+    vec = vector_std_string("X")
+    inter_face.chains(vec)
+
+    lowest_energy = 0
+    lowest_energy_pose = 0
+    lowest_energy_sub_pose = 0
+    outer_pose = 0
+    for pose_list in application_results:
+        inner_pose = 0
+        for pose in pose_list:
+            inter_face.apply(pose)
+            energy = score_function_application(pose)
+            print(energy)
+            if energy < lowest_energy:
+                lowest_energy = energy
+                lowest_energy_pose = outer_pose
+                lowest_energy_sub_pose = inner_pose
+            inner_pose += 1
+        outer_pose += 1
+
+    print ("lowest energy pose: " + str(lowest_energy_pose) + " - " + str(lowest_energy_sub_pose) + " with energy:")
+    print(lowest_energy)
+    score_mutate = score_function_mutagenesis(mutagenesis_results[lowest_energy_pose]) * -1
+    score_apply = score_function_application(application_results[lowest_energy_pose][lowest_energy_sub_pose]) * -1
+
+    print("score mutagenesis: " + str(score_mutate) + " | weight: " + str(weight_mutagenesis))
+    print("score application: " + str(score_apply) + " | weight: " + str(weight_application))
+    score = (score_mutate * weight_mutagenesis) + (score_apply * weight_application)
+    score = score / (weight_mutagenesis + weight_application)
+    print("score final: " + str(score))
 
     return score

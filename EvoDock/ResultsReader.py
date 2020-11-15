@@ -13,9 +13,8 @@ dirs = os.listdir(args.results)
 
 summary = []
 for directory in dirs:
-    print(directory)
-    if os.path.isfile(directory):
-        print(directory)
+    if len(directory.split('.')) > 1:
+        continue
     history = open(args.results + directory + "/EvoDock_history.txt", 'r')
     lines = history.readlines()
     history.close()
@@ -32,8 +31,22 @@ for directory in dirs:
         if not added:
             summary.append(load_individual)
 
+# sort summary for faster copy paste
+new_summary = []
+sort_pattern = [['L', 'P', 'D'], ['P', 'W', 'F'], ['V', 'L', 'M'], ['D', 'R', 'N'], ['V', 'D', 'M']]
+while len(sort_pattern) > 0:
+    for entry in summary:
+        if len(sort_pattern) == 0:
+            break
+        if entry[0] == sort_pattern[0]:
+            new_summary.append(entry)
+            sort_pattern.remove(sort_pattern[0])
+summary = new_summary
+
 times = []
 for directory in dirs:
+    if len(directory.split('.')) > 1:
+        continue
     run_info = open(args.results + directory + "/EvoDock_run_information.txt", 'r')
     lines = run_info.readlines()
     run_info.close()
@@ -45,16 +58,32 @@ out_content = ""
 workbook = xlsxwriter.Workbook(args.results + "ResultsReader_out_table.xlsx")
 worksheet = workbook.add_worksheet()
 
+row = 0
+for entry in summary:
+    col = 0
+    for item in entry:
+        if item == entry[0]:
+            worksheet.write(row, col, str(item))
+        else:
+            worksheet.write(row, col, float(item))
+        col += 1
+    row += 1
+
 
 for entry in summary:
     out_content += str(entry) + "\n"
 out_content += str(times) + "\n"
 sum_time = 0
+col = 1
 for time in times:
     hours = int(time[0:1])
     mins = int(time[2:4])
     secs = int(time[5:7])
     sum_time += (60 * 60 * hours) + (60 * mins) + secs
+    # write to worksheet
+    worksheet.write(row, col, str(time))
+    col += 1
+
 average_time = sum_time / len(times)
 average_hours = math.floor(average_time / float(60 * 60))
 average_mins = math.floor((average_time - average_hours) / 60)
@@ -65,7 +94,9 @@ if len(str(average_mins)) == 1:
     average_mins = "0" + str(average_mins)
 if len(str(average_secs)) == 1:
     average_secs = "0" + str(average_secs)
-out_content += str(average_hours) + ":" + str(average_mins) + ":" + str(average_secs)
+average_string = str(average_hours) + ":" + str(average_mins) + ":" + str(average_secs)
+out_content += average_string
+worksheet.write(row, col, average_string)
 workbook.close()
 
 out_file = open(args.results + "ResultsReader_out.txt", 'w')

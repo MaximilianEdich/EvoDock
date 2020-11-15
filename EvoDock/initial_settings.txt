@@ -1,8 +1,8 @@
--init-pop-run-mode create-and-quit 5
+-init-pop-run-mode create-and-quit 1
 -init-pop-create-mode mutate
 -task LIGAND-BINDING
 -targetscore 1000
--prot-path molecules/2PQL.relaxed.pdb
+-prot-path 2PQL.relaxed.pdb
 -res-id 3
 -res-id 111
 -res-id 135
@@ -10,10 +10,19 @@ initial>V,D,M
 -substitutions
 -substitutions
 -substitutions
--cpu 8
+-cpu 5
 -seed 12345
+
 -mutate MutateByPyRosetta
 -apply DockByPyRosetta
 -score ScoreOnPyRosetta
 -fold FoldByPyRosetta
--module-param-mutate -backbone-mover SMALL-MOVER
+
+-use-specific-mutate-out FALSE
+
+-module-param-mutate -rotamer-mover NONE
+-module-param-mutate -rotamer-moves-number 1
+-module-param-mutate -make-poses 3
+-module-param-mutate -save-pdb TRUE
+-module-param-apply -make-poses 1
+-module-param-apply -xml-protocol-path ligand_dock.xml
