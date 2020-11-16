@@ -1,7 +1,7 @@
 -init-pop-run-mode create-and-quit 5
 -init-pop-create-mode mutate
 -task LIGAND-BINDING
--targetscore 10000
+-targetscore INFINITE
 -prot-path 2PQL.relaxed.pdb
 -res-id 3
 -res-id 111
@@ -20,15 +20,15 @@
 
 -use-specific-mutate-out TRUE
 
--module-param-apply -score-function dock_sfx.txt
-
 -module-param-mutate -rotamer-mover NONE
 -module-param-mutate -rotamer-moves-number 1
 -module-param-mutate -make-poses 1
+-module-param-mutate -extra-relax FAST-RELAX
 -module-param-mutate -save-pdb TRUE
--module-param-apply -make-poses 1
--module-param-apply -xml-protocol-path ligand_dock.xml
 
+-module-param-apply -score-function dock_sfx.txt
+-module-param-apply -make-poses 0
+-module-param-apply -xml-protocol-path ligand_dock.xml
 -module-param-apply -xml-substitution SUBST_TRANSLATE_ANG 2.0
 -module-param-apply -xml-substitution SUBST_TRANSLATE_CYCLES 50
 

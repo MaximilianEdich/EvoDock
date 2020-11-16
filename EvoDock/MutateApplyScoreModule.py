@@ -1,11 +1,12 @@
 """
-The Mutation, Docking and Scoring Module for EvoDock Version 0.1.
+The Mutation, Application and Scoring Module for EvoDock Version 0.1.
 
 This is responsible for performing all necessary steps to modify a pdb file which correspond to a mutation of the
-protein. Next the protein will be used in docking and get a score.
+protein. Next the protein will be used in a task specific application and get a score.
 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
+# region Imports and fixed vars
 import importlib
 
 mutate_mod = None
@@ -19,6 +20,9 @@ MODULE_PARAM_SCORE = "-module-param-score"
 MODULE_PARAM_FOLD = "-module-param-fold"
 
 
+# endregion
+
+# region Initialization validation, and preparation of modules
 def init(mutate, apply, score, fold):
     """
     Try to import desired modules. Modules are not validated in this step.
@@ -105,27 +109,6 @@ def validate_module_data(protein_path, out_path):
     return True
 
 
-class MutateApplyScore:
-    def __init__(self):
-        self.original_individual = None
-        self.out_path = None
-        self.protein_path = None
-        self.amino_acid_paths = None
-        self.use_specific_mutate_out = True
-        self.use_existent_mutate_out_path = None
-        return
-
-    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-                   use_existent_mutate_out_path):
-        self.original_individual = original_individual
-        self.out_path = out_path
-        self.protein_path = protein_path
-        self.amino_acid_paths = amino_acid_paths
-        self.use_specific_mutate_out = use_specific_mutate_out
-        self.use_existent_mutate_out_path = use_existent_mutate_out_path
-        return
-
-
 def preparation_result_path(protein_path, out_path):
     """
 
@@ -164,6 +147,30 @@ def handle_module_params(params):
 
 def get_initial_amino_acids(protein_path, amino_acid_paths):
     return mutate_mod.get_initial_amino_acids(protein_path, amino_acid_paths)
+
+
+# endregion
+
+# region Pipeline input-output flow
+class MutateApplyScore:
+    def __init__(self):
+        self.original_individual = None
+        self.out_path = None
+        self.protein_path = None
+        self.amino_acid_paths = None
+        self.use_specific_mutate_out = True
+        self.use_existent_mutate_out_path = None
+        return
+
+    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
+                   use_existent_mutate_out_path):
+        self.original_individual = original_individual
+        self.out_path = out_path
+        self.protein_path = protein_path
+        self.amino_acid_paths = amino_acid_paths
+        self.use_specific_mutate_out = use_specific_mutate_out
+        self.use_existent_mutate_out_path = use_existent_mutate_out_path
+        return
 
 
 def generate_application_input(mutations, mutant_out_path, protein_path, amino_acid_paths, fold_instead_mutate,
@@ -242,7 +249,7 @@ def calculate_fitness_score(specific_results):
 
 def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mutate):
     """
-    Use the given input to generate a mutant and perform a ligand docking, both via external software tools.
+    Use the given input to generate a mutant and perform a task specific application, both via external software tools.
     Output information of both tools is then used to determine a score that is usable as a fitness score for evolution.
     :param fold_instead_mutate:
     :param target_individual: An individual in the form of [g, s], where s is the score
@@ -290,3 +297,5 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     fitness_score = calculate_fitness_score(specific_results)
 
     return fitness_score
+
+# endregion

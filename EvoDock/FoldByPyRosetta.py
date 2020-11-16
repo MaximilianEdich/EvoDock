@@ -26,7 +26,7 @@ def validate_data(protein_path, out_path):
     return
 
 
-def generate_docking_input(protein_path, run_out_path, amino_acid_paths, mutations):
+def generate_application_input(protein_path, run_out_path, amino_acid_paths, mutations):
     """
     """
 

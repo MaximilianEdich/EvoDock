@@ -81,6 +81,26 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
     mutagenesis_results = specific_results[0]
     application_results = specific_results[1]
 
+    if mutagenesis_results == []:
+        return 0
+
+    if application_results == [[]]:
+        lowest_energy = 0
+        lowest_energy_pose = 0
+        outer_pose = 0
+        for pose in mutagenesis_results:
+            energy = score_function_mutagenesis(pose)
+            if energy < lowest_energy:
+                lowest_energy = energy
+                lowest_energy_pose = outer_pose
+            outer_pose += 1
+        print("lowest energy pose: " + str(lowest_energy_pose) + " with energy:")
+        print(lowest_energy)
+        score_mutate = score_function_mutagenesis(mutagenesis_results[lowest_energy_pose]) * -1
+        score = (score_mutate * weight_mutagenesis)
+        print("score final: " + str(score))
+        return score
+
     # get score functions
     inter_face = InterfaceScoreCalculator()
     inter_face.score_fxn(score_function_application)

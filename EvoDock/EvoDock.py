@@ -47,7 +47,7 @@ try:
     import MutateApplyScoreModule
 except ImportError as e:
     MutateApplyScoreModule = None
-    exit("Error: Import of \"MutateDockScoreModule\" failed. Make sure to provide this module, since it is essential. "
+    exit("Error: Import of \"MutateApplyScoreModule\" failed. Make sure to provide this module, since it is essential. "
          "This module is part of EvoDock, so probably something went wrong with the installation. "
          "Make sure, that all EvoDock modules are in the same folder. Check the documentation for more information. "
          "Error Message: " + str(e))
@@ -66,12 +66,14 @@ if PLOT:
 start_time = datetime.datetime.now()
 print("start timer")
 
-# region String Vars and Indecies
+# region String Vars and Indices
 # initial settings file values
 # task and termination
 TARGET_SCORE = "-targetscore"
+INFINITE = "INFINITE"
+NEGATIVE_INFINITE = "NEGATIVE-INFINITE"
 TERMINATE_TIME = "-terminate-by-time"
-TERMINATE_SCORE = "-terminate-by-score"
+TERMINATE_SCORE = "-terminate-by-score-range"
 TASK_TYPE = "-task"
 TASK_LIGAND_BINDING = "LIGAND-BINDING"
 TASK_PROTEIN_BINDING = "PROTEIN-BINDING"
@@ -155,7 +157,7 @@ args = parser.parse_args()
 # region Specification of initial essential and optional values, set default values
 target_score = None
 terminate_time = None
-terminate_score = None
+terminate_score_range = None
 task = ""
 initial_population_run_mode = ""
 initial_population_create_mode = ""
@@ -170,7 +172,7 @@ number_of_mutable_aa = 0
 
 mds = MutateApplyScoreModule.MutateApplyScore()
 module_name_mutate = ""
-module_name_dock = ""
+module_name_apply = ""
 module_name_score = ""
 module_name_fold = ""
 use_specific_mutate_out = None
@@ -290,13 +292,47 @@ for line in initial_settings_file_content:
                 error_msg_create_init_pop_options()
 
     elif split_text[0] == TARGET_SCORE:
-        defined_target_score = True
         # set the target score, any value possible
         try:
-            target_score = float(split_text[1])
+            if split_text[1] == INFINITE or split_text[1] == NEGATIVE_INFINITE:
+                # set it to max number
+                try:
+                    import sys
+                    if split_text[1] == INFINITE:
+                        target_score = sys.maxsize
+                    else:
+                        target_score = sys.maxsize * -1
+                except ImportError as e:
+                    print("ERROR in EvoDock: Cannot set target score to max value!")
+                    exit(e)
+            else:
+                target_score = float(split_text[1])
         except ValueError:
             exit("Error, " + TARGET_SCORE + " value in initial settings file is not a valid number, must be float: \""
                  + split_text[1] + "\" in line " + str(line_index) + " of the initial settings file.")
+    elif split_text[0] == TERMINATE_SCORE:
+        try:
+            terminate_score_range = float(split_text[1])
+        except ValueError as e:
+            print("ERROR in EvoDock: " + TERMINATE_SCORE + " expects a float argument!")
+            exit(e)
+        except IndexError as e:
+            print("ERROR in EvoDock: " + TERMINATE_SCORE + " expects a float argument!")
+            exit(e)
+    elif split_text[0] == TERMINATE_TIME:
+        try:
+            time_text = split_text[1]
+            if time_text.find(':') < 0:
+                print("ERROR in EvoDock: " + TERMINATE_TIME + " expects an argument of this format:")
+                exit("'hhh:mm' or 'hh:mm' or 'h:mm', where 'h' and 'm' stand for hours and minutes respectively.")
+            time_list = time_text.split(':')
+            hours = time_list[0]
+            mins = time_list[1]
+            terminate_time = (hours * 60 * 60) + (mins * 60)
+        except IndexError as e:
+            print("ERROR in EvoDock: " + TERMINATE_TIME + " expects an argument of this format:")
+            print("'hhh:mm' or 'hh:mm' or 'h:mm', where 'h' and 'm' stand for hours and minutes respectively.")
+            exit(e)
 
     elif split_text[0] == USE_SPECIFIC_MUTATE_OUT:
         # specify if the specific mutate output should be used as input for the application module. May cause errors
@@ -333,7 +369,7 @@ for line in initial_settings_file_content:
     elif split_text[0] == MODULE_NAME_APPLY:
         # specified mutation module
         try:
-            module_name_dock = str(split_text[1])
+            module_name_apply = str(split_text[1])
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
     elif split_text[0] == MODULE_NAME_SCORE:
@@ -439,8 +475,8 @@ else:
     exit("Error in initial settings file: You have to specify the \"" + PROTEIN_PATH + " leading to your .pdb\"!")
 if module_name_mutate == "":
     exit("Error in initial settings file: You have to specify the mutation-module via \"" + MODULE_NAME_MUTATE + "\"!")
-if module_name_dock == "":
-    exit("Error in initial settings file: You have to specify the docking-module via \"" + MODULE_NAME_APPLY + "\"!")
+if module_name_apply == "":
+    exit("Error in initial settings file: You have to specify the application-module via \"" + MODULE_NAME_APPLY + "\"!")
 if module_name_score == "":
     exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
 if module_name_fold == "":
@@ -497,7 +533,7 @@ except PermissionError as e:
 # region MASM set up
 # init MASM
 print("initialize MutateApplyScoreModule: import specified modules...")
-MutateApplyScoreModule.init(module_name_mutate, module_name_dock, module_name_score, module_name_fold)
+MutateApplyScoreModule.init(module_name_mutate, module_name_apply, module_name_score, module_name_fold)
 MutateApplyScoreModule.check_imported_modules()
 
 # apply module parameters
@@ -1143,7 +1179,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
         run_info_file_content += file_line
     # # External Settings
     run_info_file_content += "\n\n\nExternal Tool Settings File Contents:\n"
-    # TODO get version numbers of MutateDockScore Modules used
+    # TODO get version numbers of MutateApplyScore Modules used
 
     run_info_file = open(out_path + "/EvoDock_run_information.txt", 'w')
     run_info_file.write(run_info_file_content)
@@ -1262,6 +1298,39 @@ def check_routine():
     return routine_errors
 
 
+def terminate_by_time():
+    """
+    Check if the runtime exceeds the termination time.
+    :return: True, if runtime exceeds specified termination time. Otherwise, and in case of no specified termination
+    time, return False.
+    """
+    if terminate_time is None:
+        return False
+    # TODO check time format and test
+    #if (datetime.datetime.now() - start_time) > int(terminate_time):
+    #    print("EvoDock: Termination caused by specified runtime.")
+    #    return True
+    return False
+
+
+def terminate_by_score(input_population):
+    """
+    Check if at least one individual has a score, whose difference to the target score is less then the termination
+    by score range.
+    :param input_population: Population, which has to be checked for the condition.
+    :return: True, if at least one indidivual's score is in termination range to the target score. Otherwise, and
+    if termination score range is not specified, return False.
+    """
+    if terminate_score_range is None:
+        return False
+    for individual in input_population:
+        if abs(individual[1] - target_score) <= terminate_score_range:
+            print("EvoDock: Termination caused by score.")
+            print("One individual's score is in specified range of target score.")
+            return True
+    return False
+
+
 def perform_routine(input_population):
     """
     Iterates through the specified routine file and executes each command in the given order.
@@ -1342,6 +1411,11 @@ def perform_routine(input_population):
             if loop_number > 0:
                 loop_number -= 1
                 routine_step = loop_jump
+        # check termination rules
+        if terminate_by_time():
+            break
+        if terminate_by_score(input_population):
+            break
 
     if PRINT_OUT:
         print("Population Size: " + str(len(input_population)))
