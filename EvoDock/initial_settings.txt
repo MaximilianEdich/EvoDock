@@ -1,4 +1,4 @@
--init-pop-run-mode create-and-quit 1
+-init-pop-run-mode create-and-quit 5
 -init-pop-create-mode mutate
 -task LIGAND-BINDING
 -targetscore 1000
@@ -10,7 +10,7 @@ initial>V,D,M
 -substitutions
 -substitutions
 -substitutions
--cpu 5
+-cpu MAX
 -seed 12345
 
 -mutate MutateByPyRosetta
@@ -18,11 +18,11 @@ initial>V,D,M
 -score ScoreOnPyRosetta
 -fold FoldByPyRosetta
 
--use-specific-mutate-out FALSE
+-use-specific-mutate-out TRUE
 
 -module-param-mutate -rotamer-mover NONE
 -module-param-mutate -rotamer-moves-number 1
--module-param-mutate -make-poses 3
+-module-param-mutate -make-poses 1
 -module-param-mutate -save-pdb TRUE
 -module-param-apply -make-poses 1
 -module-param-apply -xml-protocol-path ligand_dock.xml

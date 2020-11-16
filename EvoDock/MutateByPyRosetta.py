@@ -369,3 +369,42 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
         mutagenesis_output.append(pose)
 
     return mutagenesis_output
+
+
+def get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path):
+    """
+    Reads in paths to PDBs to recreate PyRosetta Pose objects, save these again as PDBs in new output folder
+    (if desired) and
+    :param mutant_out_path:
+    :param use_existent_mutate_out_path:
+    :return:
+    """
+    path_split = str(mutant_out_path).split('/')
+    prefix = path_split[len(path_split) - 1]
+    paths = []
+    suffix = 0
+    while True:
+        suffix += 1
+        try:
+            path = use_existent_mutate_out_path + prefix + str(suffix) + ".pdb"
+            # TODO more efficient way
+            test_file = open(path, 'r')
+            test_file.close()
+            paths.append(path)
+        except FileNotFoundError:
+            break
+
+    if not paths:
+        # file loading failed
+        return
+
+    mutagenesis_output = []
+    suffix = 0
+    for path in paths:
+        suffix += 1
+        load_pose = pose_from_file(path)
+        mutagenesis_output.append(load_pose)
+        if save_pdb:
+            load_pose.dump_pdb(mutant_out_path + str(suffix) + ".pdb")
+
+    return mutagenesis_output

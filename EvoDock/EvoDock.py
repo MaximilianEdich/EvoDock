@@ -78,6 +78,7 @@ TASKS = []
 TASKS.append(TASK_LIGAND_BINDING)
 
 CPU_CORE_NUMBER = "-cpu"
+MAX = "MAX"
 SEED = "-seed"
 LOOK_UP_TABLE = "-look-up-table-path"
 INITIAL_POPULATION = "-init-pop-run-mode"
@@ -102,6 +103,7 @@ MODULE_NAME_APPLY = "-apply"
 MODULE_NAME_SCORE = "-score"
 MODULE_NAME_FOLD = "-fold"
 USE_SPECIFIC_MUTATE_OUT = "-use-specific-mutate-out"
+USE_EXISTENT_MUTATE_OUT_PATH = "-use-existent-mutate-out-path"
 
 
 # strings for routine commands
@@ -165,6 +167,7 @@ defined_target_score = False
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
 use_specific_mutate_out = None
+use_existent_mutate_out_path = None
 # endregion
 
 # region load files
@@ -298,6 +301,18 @@ for line in initial_settings_file_content:
                                                           "\n" + setting + ". Expected are: 'TRUE' or 'FALSE'")
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+    elif split_text[0] == USE_EXISTENT_MUTATE_OUT_PATH:
+        # specify path to already existing mutate out path, from were results are used, if available
+        try:
+            use_existent_mutate_out_path = str(split_text[1])
+            if use_existent_mutate_out_path[-1:] != '/':
+                use_existent_mutate_out_path += "/"
+                print("WARNING: path of '"
+                      "" + USE_EXISTENT_MUTATE_OUT_PATH + "' was extended to folder: " + use_existent_mutate_out_path)
+            # TODO check if it is a folder
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+
     elif split_text[0] == MODULE_NAME_MUTATE:
         # specified mutation module
         try:
@@ -357,13 +372,16 @@ for line in initial_settings_file_content:
     elif split_text[0] == CPU_CORE_NUMBER:
         # number of usable cpu cores
         try:
-            usable_cpu = int(split_text[1])
-            if usable_cpu < 1:
-                usable_cpu = 1
+            if split_text[1] == MAX:
+                usable_cpu = multi_p.cpu_count()
+            else:
+                usable_cpu = int(split_text[1])
+                if usable_cpu < 1:
+                    usable_cpu = 1
         except IndexError as e:
             exit("Error in line " + str(line_index) + ": Missing argument, the number of usable CPU cores.")
         except ValueError as e:
-            exit("Error in line " + str(line_index) + ": Argument must be a positive integer!")
+            exit("Error in line " + str(line_index) + ": Argument must be a positive integer or 'MAX'!")
     elif split_text[0] == SEED:
         # set seed for random number generator
         try:
@@ -494,7 +512,8 @@ MutateApplyScoreModule.validate_module_data(protein_path, out_path)
 MutateApplyScoreModule.prepare_tool(protein_path, out_path)
 protein_path = MutateApplyScoreModule.preparation_result_path(protein_path, out_path)
 print(protein_path)
-mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out)
+mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
+               use_existent_mutate_out_path)
 
 # endregion
 
@@ -546,9 +565,9 @@ def get_and_write_score(target_individual):
 
     # calculate the score (by using external software) TODO check parameter and not initial setting
     if initial_population_create_mode == CREATE_VIA_MUTATE:
-        score = MutateApplyScoreModule.get_score(target_individual, mds, False)
+        score = MutateApplyScoreModule.get_fitness_score(target_individual, mds, False)
     else:
-        score = MutateApplyScoreModule.get_score(target_individual, mds, True)
+        score = MutateApplyScoreModule.get_fitness_score(target_individual, mds, True)
     # write the score into the individual and return score
     target_individual[1] = score
 

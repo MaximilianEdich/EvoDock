@@ -23,6 +23,7 @@ SAVE_PDB = "-save-pdb"
 MAKE_POSES = "-make-poses"
 
 score_function = None
+docking_protocol = None
 
 xml_protocol_path = ""
 save_pdb = True
@@ -60,7 +61,8 @@ def validate_data(protein_path, out_path):
         exit(e)
     xml_object = RosettaScriptsParser()
     try:
-        protocol = xml_object.generate_mover(xml_protocol_path)
+        global docking_protocol
+        docking_protocol = xml_object.generate_mover(xml_protocol_path)
     except RuntimeError as e:
         print("ERROR in DockByPyRosetta: XML protocol cannot be parsed: " + xml_protocol_path)
         exit(e)
@@ -154,7 +156,7 @@ def perform_application(application_input, out_path):
     print("Start DockByPyRosetta")
     docking_results = []
     # get score function
-    score_fxn = get_fa_scorefxn()
+    score_fxn = score_function
 
     poses = []
     for pose in application_input:
@@ -165,8 +167,7 @@ def perform_application(application_input, out_path):
             pose_list.append(new_pose)
         poses.append(pose_list.copy())
 
-    xml_object = RosettaScriptsParser()
-    protocol = xml_object.generate_mover(xml_protocol_path)
+    protocol = docking_protocol
     suffix = 0
     for pose_list in poses:
         suffix_2 = 0

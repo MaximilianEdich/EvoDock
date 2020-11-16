@@ -112,14 +112,17 @@ class MutateApplyScore:
         self.protein_path = None
         self.amino_acid_paths = None
         self.use_specific_mutate_out = True
+        self.use_existent_mutate_out_path = None
         return
 
-    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out):
+    def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
+                   use_existent_mutate_out_path):
         self.original_individual = original_individual
         self.out_path = out_path
         self.protein_path = protein_path
         self.amino_acid_paths = amino_acid_paths
         self.use_specific_mutate_out = use_specific_mutate_out
+        self.use_existent_mutate_out_path = use_existent_mutate_out_path
         return
 
 
@@ -155,7 +158,8 @@ def handle_module_params(params):
     return
 
 
-def generate_application_input(mutations, mutant_out_path, protein_path, amino_acid_paths, fold_instead_mutate):
+def generate_application_input(mutations, mutant_out_path, protein_path, amino_acid_paths, fold_instead_mutate,
+                               use_existent_mutate_out_path):
     """
     Performs a mutagenesis on the original pdb file. Substitutes specific amino acids and optimizes rotamer and
     adapt the backbone to the change. Results are saved in new generated pdb files.
@@ -165,25 +169,49 @@ def generate_application_input(mutations, mutant_out_path, protein_path, amino_a
     :param mutant_out_path: The path leading to the output files.
     :return: None. The generated files are of interest.
     """
+    if use_existent_mutate_out_path is not None:
+        # if alternative file available, load it, otherwise, do regular mutagenesis
+        results = mutate_mod.get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path)
+        if results is not None:
+            return results
+
     if fold_instead_mutate:
-        results = fold_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
+        return fold_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
     else:
-        results = mutate_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
-
-    return results
+        return mutate_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
 
 
-def run_application(mutations, mutant_out_path, amino_acid_paths, protein_path, application_input, use_specific_mutate_out):
+def run_application(mutant_out_path, application_input, use_specific_mutate_out, use_existent_mutate_out_path):
     """
 
     :return:
     """
-
     if use_specific_mutate_out:
         # simply use output from mutagenesis as application input
-        results = apply_mod.perform_application(application_input, mutant_out_path)
+        return apply_mod.perform_application(application_input, mutant_out_path)
     else:
-        # generate new application input by loading pdb files.
+        if use_existent_mutate_out_path is not None:
+            # generate new application input by loading pdb files from specified path.
+            path_split = str(mutant_out_path).split('/')
+            prefix = path_split[len(path_split) - 1]
+            load_input = []
+            suffix = 0
+            while True:
+                suffix += 1
+                try:
+                    path = use_existent_mutate_out_path + prefix + str(suffix) + ".pdb"
+                    # TODO more efficient way
+                    test_file = open(path, 'r')
+                    test_file.close()
+                    load_input.append(path)
+                except FileNotFoundError:
+                    break
+
+            if load_input:
+                # if there is input to load, use it, otherwise use regularly created PDBs from mutagenesis
+                return apply_mod.perform_application_with_pdb(load_input, mutant_out_path)
+
+        # generate new application input by loading pdb files of this run.
         new_input = []
         suffix = 0
         for _ in application_input:
@@ -191,18 +219,11 @@ def run_application(mutations, mutant_out_path, amino_acid_paths, protein_path, 
             mutant_variant = mutant_out_path + str(suffix) + ".pdb"
             new_input.append(mutant_variant)
 
-        results = apply_mod.perform_application_with_pdb(new_input, mutant_out_path)
-
-    return results
+        return apply_mod.perform_application_with_pdb(new_input, mutant_out_path)
 
 
-def calculate_fitness_score(mutations, mutant_out_path, amino_acid_paths, protein_path, specific_results):
+def calculate_fitness_score(specific_results):
     """
-    Uses data from mutagenesis and the application to calculate a fitness score.
-    :param target_individual: An individual in the form of [g, s], where s is the score
-    value and g a list of genes (in terms of genetic algorithms) in form of [g1, g2, ..., g_n], where each
-    gene represents an amino acid.
-    :return: the calculated score as the individuals fitness.
     """
     sfx_mut = mutate_mod.get_score_function()
     sfx_apply = apply_mod.get_score_function()
@@ -211,7 +232,7 @@ def calculate_fitness_score(mutations, mutant_out_path, amino_acid_paths, protei
     return score
 
 
-def get_score(target_individual, mds: MutateApplyScore, fold_instead_mutate):
+def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mutate):
     """
     Use the given input to generate a mutant and perform a ligand docking, both via external software tools.
     Output information of both tools is then used to determine a score that is usable as a fitness score for evolution.
@@ -224,14 +245,14 @@ def get_score(target_individual, mds: MutateApplyScore, fold_instead_mutate):
     """
 
     # define output-folder for this mutant
-    mutant_out_path = mds.out_path + "/Mutant"
+    mutant_out_path = mas.out_path + "/Mutant"
     for x in target_individual[0]:
         mutant_out_path += "_" + str(x)
 
     # identify real mutations
     mutations = []
-    for k in range(len(mds.original_individual[0])):
-        if mds.original_individual[0][k] == target_individual[0][k]:
+    for k in range(len(mas.original_individual[0])):
+        if mas.original_individual[0][k] == target_individual[0][k]:
             # no change in this position compared to target
             mutations.append("")
         else:
@@ -239,7 +260,7 @@ def get_score(target_individual, mds: MutateApplyScore, fold_instead_mutate):
             mutations.append((target_individual[0][k]))
 
     # do error prevention
-    if not mds.use_specific_mutate_out:
+    if not mas.use_specific_mutate_out:
         mutate_mod.parameter_handling([mutate_mod.SAVE_PDB, mutate_mod.TRUE])
 
     # generate mutagenesis output as input for the application and keep results for scoring
@@ -250,12 +271,14 @@ def get_score(target_individual, mds: MutateApplyScore, fold_instead_mutate):
     # at the end shows which pose of this mutant it is.
     specific_results = [[], []]
 
-    # TODO instead mutating: load fixed pdbs. If not available, use mutate
+    specific_results[0] = generate_application_input(mutations, mutant_out_path, mas.protein_path,
+                                                     mas.amino_acid_paths, fold_instead_mutate,
+                                                     mas.use_existent_mutate_out_path)
+    # perform application
+    specific_results[1] = run_application(mutant_out_path, specific_results[0], mas.use_specific_mutate_out,
+                                          mas.use_existent_mutate_out_path)
 
-    specific_results[0] = generate_application_input(mutations, mutant_out_path, mds.protein_path, mds.amino_acid_paths, fold_instead_mutate)
-    # use fresh input for protein-ligand docking
-    specific_results[1] = run_application(mutations, mutant_out_path, mds.amino_acid_paths, mds.protein_path, specific_results[0], mds.use_specific_mutate_out)
-    # use results to calculate fitness score
-    score = calculate_fitness_score(mutations, mutant_out_path, mds.amino_acid_paths, mds.protein_path, specific_results)
+    # evaluate all scores for final fitness
+    fitness_score = calculate_fitness_score(specific_results)
 
-    return score
+    return fitness_score
