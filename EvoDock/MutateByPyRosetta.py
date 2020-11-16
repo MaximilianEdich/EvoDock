@@ -39,6 +39,8 @@ PACK_RADIUS = "-pack-radius"
 ROTAMER_MOVES_NUMBER = "-rotamer-moves-number"
 BACKBONE_MOVES_NUMBER = "-backbone-moves-number"
 MAKE_POSES = "-make-poses"
+SET_KT = "-set-kT"
+SET_N_MOVES = "-set-n-moves"
 ROTAMER_MOVER = "-rotamer-mover"
 BACKBONE_MOVER = "-backbone-mover"
 
@@ -251,6 +253,26 @@ def parameter_handling(params):
             if number >= 0:
                 global make_poses
                 make_poses = number
+        except ValueError:
+            exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == SET_KT:
+        try:
+            number = float(params[1])
+            if number >= 0:
+                global kT
+                kT = number
+        except ValueError:
+            exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == SET_N_MOVES:
+        try:
+            number = int(params[1])
+            if number >= 0:
+                global n_moves
+                n_moves = number
         except ValueError:
             exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
         except IndexError:
