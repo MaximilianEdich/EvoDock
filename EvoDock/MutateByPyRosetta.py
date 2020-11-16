@@ -1,4 +1,4 @@
-# try importing PyRosetta modules
+# region Imports and init
 try:
     from pyrosetta import init, pose_from_file, get_fa_scorefxn, create_score_function, standard_packer_task
     from pyrosetta.toolbox import mutate_residue
@@ -21,6 +21,9 @@ except ImportError as e:
 
 init()
 
+# endregion
+
+# region Fixed values and variables
 NONE = "NONE"
 TRUE = "TRUE"
 FALSE = "FALSE"
@@ -67,6 +70,8 @@ kT = 1.0
 n_moves = 5
 extra_relax = None
 
+# endregion
+
 
 def is_mutation_module():
     """
@@ -83,8 +88,10 @@ def validate_data(protein_path, out_path):
     :param out_path: Path to the output folder of this run.
     :return: True, all checks are valid.
     """
-    # TODO check if it is pose
-    pose = pose_from_file(protein_path)
+    try:
+        pose = pose_from_file(protein_path)
+    except RuntimeError:
+        exit("ERROR in MutateByPyRosetta: Cannot load pose from " + str(protein_path))
     print("MutateByPyRosetta: Pose is validated!")
     print("MutateByPyRosetta: Inputs are validated!")
     return True
@@ -109,13 +116,25 @@ def get_score_function():
 
 
 def get_initial_amino_acids(protein_path, amino_acid_paths):
+    """
+    Get the single-letter amino acid code from the residues of interest.
+    :param protein_path: path to a PDB.
+    :param amino_acid_paths: list of residue ids.
+    :return: list of single-letter aa codes, respectivly to the input list amino_amino_acid_paths.
+    """
     pose = pose_from_file(protein_path)
+    result = []
     for aa_pos in amino_acid_paths:
-        print(pose.residue(int(aa_pos)).name())
-    return
+        result.append(pose.residue(int(aa_pos)).name1())
+    return result
 
 
 def parameter_handling(params):
+    """
+    Handle parameter which are written in the inital settings file and are specified as mutagenesis module parameter.
+    :param params: list of parameter name and values, where the first element is always the name.
+    :return: None.
+    """
     if params[0] == RELAX:
         global relax_mode
         if params[1] == NONE:

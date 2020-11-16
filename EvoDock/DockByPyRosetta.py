@@ -1,5 +1,4 @@
-
-# try importing PyRosetta modules
+# region Imports and init
 try:
     from pyrosetta import init, pose_from_file, get_fa_scorefxn, create_score_function
     from pyrosetta.rosetta.core.pose import Pose
@@ -14,11 +13,15 @@ except ImportError as e:
 
 init()
 
+# endregion
+
+# region Fixed values and variables
 NONE = "NONE"
 TRUE = "TRUE"
 FALSE = "FALSE"
 
 XML_PROT_PATH = "-xml-protocol-path"
+XML_SUBSTITUTION = "-xml-substitution"
 SAVE_PDB = "-save-pdb"
 MAKE_POSES = "-make-poses"
 
@@ -26,9 +29,12 @@ score_function = None
 docking_protocol = None
 
 xml_protocol_path = ""
+xml_subst_list = []
 save_pdb = True
 make_poses = 1
 fixed_files_path = None
+
+# endregion
 
 
 def is_application_module():
@@ -46,12 +52,17 @@ def validate_data(protein_path, out_path):
     :param out_path: Path to the output folder of this run.
     :return: True, all checks are valid.
     """
+    # check if path is not empty
+    global xml_protocol_path
     if xml_protocol_path == "":
         exit("ERROR in DockByPyRosetta: XML file was not specified. "
              "Do this with '-module-param-apply " + XML_PROT_PATH + " <path>'"
              " in the initial settings file.")
+    # try opening the file
+    xml_content = ""
     try:
         xml = open(xml_protocol_path, 'r')
+        xml_content = xml.read()
         xml.close()
     except FileNotFoundError as e:
         print("ERROR in DockByPyRosetta: XML file not found: " + xml_protocol_path)
@@ -59,6 +70,17 @@ def validate_data(protein_path, out_path):
     except PermissionError as e:
         print("ERROR in DockByPyRosetta: Permission denied for XML file : " + xml_protocol_path)
         exit(e)
+    # do substitutions, if required
+    if len(xml_subst_list) > 0:
+        for key_value in xml_subst_list:
+            xml_content = xml_content.replace(key_value[0], key_value[1])
+        name = xml_protocol_path.split('/')
+        xml_protocol_path = out_path + "/" + name[len(name) - 1]
+        print("Generated new XML protocol at: " + xml_protocol_path)
+        xml = open(xml_protocol_path, 'w')
+        xml.write(xml_content)
+        xml.close()
+    # parse (new) protocol
     xml_object = RosettaScriptsParser()
     try:
         global docking_protocol
@@ -78,6 +100,10 @@ def set_score_function(path_name, arg1_is_path=True):
         # open file and create new score function
         score_function = ScoreFunction()
         score_function.set_weight(ScoreType.fa_intra_rep, 0.004)
+        score_function.set_weight(ScoreType.fa_elec, 0.42)
+        score_function.set_weight(ScoreType.hbond_bb_sc, 1.3)
+        score_function.set_weight(ScoreType.hbond_sc, 1.3)
+        score_function.set_weight(ScoreType.rama, 0.2)
     else:
         # arg1 is string, try to load respective score function
         score_function = create_score_function(path_name)
@@ -106,11 +132,18 @@ def parameter_handling(params):
             print("ERROR in DockByPyRosetta: wrong value type of argument(s): " + str(params))
             exit(e)
     elif params[0] == XML_PROT_PATH:
-
         global xml_protocol_path
         xml_protocol_path = params[1]
         if xml_protocol_path[-4:] != ".xml":
             print("WARNING in DockByPyRosetta: specified XML file may not is a true XML file! Wrong file-ending!")
+    elif params[0] == XML_SUBSTITUTION:
+        try:
+            xml_subst_list.append([params[1], params[2]])
+        except IndexError as e:
+            print("ERROR in DockByPyRosetta: '" + XML_SUBSTITUTION + " <k> <v>' requires two arguments, where "
+                                                                     "<k> is the key, a string that in the XML that is"
+                                                                     "substituted by <v>, the value.")
+            exit(e)
     else:
         exit("ERROR in DockByPyRosetta: unknown flag: " + str(params))
 

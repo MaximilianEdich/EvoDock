@@ -105,7 +105,6 @@ MODULE_NAME_FOLD = "-fold"
 USE_SPECIFIC_MUTATE_OUT = "-use-specific-mutate-out"
 USE_EXISTENT_MUTATE_OUT_PATH = "-use-existent-mutate-out-path"
 
-
 # strings for routine commands
 MUTATE = "mutate"
 MUTATE_PLUS = "mutate+"
@@ -161,8 +160,8 @@ original = [[], 0]
 protein_path = ""
 mode = ""
 amino_acid_paths = []
-number_of_mutable_aa = 0
 allowed_mutations = []
+number_of_mutable_aa = 0
 defined_target_score = False
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
@@ -338,12 +337,6 @@ for line in initial_settings_file_content:
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
 
-    elif split_text[0][0:len("initial>")] == "initial>":
-        # original individual
-        # TODO if auto, do automatically via mutate module
-        initial_genes = split_text[0][len("initial>"):].split(',')
-        original[0] = initial_genes
-        number_of_mutable_aa = len(initial_genes)
     elif split_text[0] == SUBSTITUTIONS:
         # read allowed substitutions for mutations per position
         if len(split_text) == 1:
@@ -408,15 +401,11 @@ for line in initial_settings_file_content:
 # endregion
 
 # region catch undefined essential values
-if not original[0]:
-    exit("Error in initial settings file: You have to specify the mutable amino acids of the original protein!")
-if number_of_mutable_aa != len(allowed_mutations):
-    print("Error in initial settings file: Number of substitutions per position does not match with the number"
-         "of mutable amino acids in the original protein!")
-    exit("use equal amount of '" + AA_PATH + "' and '" + SUBSTITUTIONS + "'!")
+number_of_mutable_aa = len(amino_acid_paths)
 if len(amino_acid_paths) != len(allowed_mutations):
-    exit("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
+    print("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
          "are not equal!")
+    exit("use equal amount of '" + AA_PATH + "' and '" + SUBSTITUTIONS + "'!")
 if initial_population_run_mode == "":
     print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION + "\"! Use these options:")
     error_msg_initial_population_options()
@@ -518,7 +507,8 @@ mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_
 # endregion
 
 print("IMPORTS AND FILE LOADINGS DONE!\n")
-# print loaded info summary TODO load initial aa
+# init original individual and print loaded info summary
+original[0] = MutateApplyScoreModule.get_initial_amino_acids(protein_path, amino_acid_paths)
 print("original individual + amino acid paths:")
 print(original[0])
 print(amino_acid_paths)
@@ -546,6 +536,8 @@ if look_up_table_path != "":
         load_individual[1] = float(content[1])
         load_individual[0] = ast.literal_eval(content[0])
         look_up_scores.append(load_individual)
+
+
 # endregion
 
 # region Score Functions
@@ -1105,8 +1097,8 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     if extra_info != "":
         results_file_content += extra_info + "\n"
     results_file_content += "Final Population Size: " + str(len(input_population)) + "\n" \
-                           + str("Best score: " + str(best_score) + " | with difference to target score: "
-                                 + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
+                            + str("Best score: " + str(best_score) + " | with difference to target score: "
+                                  + str(get_individuals_score_relative_to_targetScore(input_population[0]))) + "\n"
     results_file_content += str("Number of mutants sharing best score: " + str(individual_count)) + "\n"
     results_file_content += "Number of accepted mutations: " + str(
         iterationCounts[ITERATION_COUNT_MUTATION_INDEX]) + "\n"
@@ -1410,7 +1402,7 @@ elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
     population = generate_initial_population(start_population_size, original)
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 
-#endregion
+# endregion
 
 # region perform evolution routine
 routine_results = perform_routine(population)
@@ -1453,7 +1445,6 @@ for tree in evolutionary_trees:
     print(len(tree))
     print(tree)
     pass
-
 
 # Plot results
 if PLOT:

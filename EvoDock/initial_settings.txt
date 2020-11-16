@@ -6,10 +6,10 @@
 -res-id 3
 -res-id 111
 -res-id 135
-initial>V,D,M
 -substitutions
 -substitutions
 -substitutions
+
 -cpu MAX
 -seed 12345
 
@@ -26,3 +26,6 @@ initial>V,D,M
 -module-param-mutate -save-pdb TRUE
 -module-param-apply -make-poses 1
 -module-param-apply -xml-protocol-path ligand_dock.xml
+
+-module-param-apply -xml-substitution SUBST_TRANSLATE_ANG 2.0
+-module-param-apply -xml-substitution SUBST_TRANSLATE_CYCLES 50

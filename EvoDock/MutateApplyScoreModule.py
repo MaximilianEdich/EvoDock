@@ -158,6 +158,10 @@ def handle_module_params(params):
     return
 
 
+def get_initial_amino_acids(protein_path, amino_acid_paths):
+    return mutate_mod.get_initial_amino_acids(protein_path, amino_acid_paths)
+
+
 def generate_application_input(mutations, mutant_out_path, protein_path, amino_acid_paths, fold_instead_mutate,
                                use_existent_mutate_out_path):
     """

@@ -1,5 +1,4 @@
-
-# try importing PyRosetta modules
+# region Imports and init
 try:
     from pyrosetta import init
 
@@ -13,6 +12,8 @@ except ImportError as e:
     exit("ScoreOnPyRosetta: ImportError: " + str(e))
 
 init()
+
+# endregion
 
 weight_mutagenesis = 0
 weight_application = 1

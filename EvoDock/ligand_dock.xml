@@ -31,7 +31,7 @@
 	<MOVERS>
 		single movers
 		<CompoundTranslate name="compound_translate" randomize_order="false" allow_overlap="false">
-			<Translate chain="X" distribution="uniform" angstroms="2.0" cycles="50"/>
+			<Translate chain="X" distribution="uniform" angstroms="SUBST_TRANSLATE_ANG" cycles="SUBST_TRANSLATE_CYCLES"/>
 		</CompoundTranslate>
 		<Rotate name="rotate_X" chain="X" distribution="uniform" degrees="360" cycles="500"/>
 		<SlideTogether name="slide_together" chains="X"/>
