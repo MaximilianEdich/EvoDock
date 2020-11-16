@@ -20,6 +20,7 @@ NONE = "NONE"
 TRUE = "TRUE"
 FALSE = "FALSE"
 
+SET_SCORE_FUNCTION = "-score-function"
 XML_PROT_PATH = "-xml-protocol-path"
 XML_SUBSTITUTION = "-xml-substitution"
 SAVE_PDB = "-save-pdb"
@@ -52,6 +53,14 @@ def validate_data(protein_path, out_path):
     :param out_path: Path to the output folder of this run.
     :return: True, all checks are valid.
     """
+    # check score function
+    if score_function is None:
+        exit("ERROR in DockByPyRosetta: Score function file was not specified. "
+             "Use this in the initial settings file:\n"
+             "'-module-param-apply " + SET_SCORE_FUNCTION + " <path/name>', where <path/name> is either a path to the "
+                                                            ".txt file containing all details or a name of a Rosetta "
+                                                            "score function.")
+    # check xml protocol
     # check if path is not empty
     global xml_protocol_path
     if xml_protocol_path == "":
@@ -94,20 +103,59 @@ def validate_data(protein_path, out_path):
     return
 
 
-def set_score_function(path_name, arg1_is_path=True):
+def set_score_function(path_name):
+    """
+    Set the Rosetta score function of this module.
+    :param path_name: Name of one of Rosetta's score functions or path to a .txt file with score function base and
+    weights.
+    :return: None.
+    """
     global score_function
-    if arg1_is_path:
+    if path_name[-4:] == ".txt":
         # open file and create new score function
+        try:
+            score_file = open(path_name, 'r')
+            score_file_content = score_file.readlines()
+            score_file.close()
+        except FileNotFoundError:
+            score_file_content = None
+            exit("ERROR in DockByPyRosetta: Score function file not found! " + path_name)
+        except PermissionError:
+            score_file_content = None
+            exit("ERROR in DockByPyRosetta: Cannot open score function file! Permission denied! " + path_name)
+        # create empty score function
         score_function = ScoreFunction()
-        score_function.set_weight(ScoreType.fa_intra_rep, 0.004)
-        score_function.set_weight(ScoreType.fa_elec, 0.42)
-        score_function.set_weight(ScoreType.hbond_bb_sc, 1.3)
-        score_function.set_weight(ScoreType.hbond_sc, 1.3)
-        score_function.set_weight(ScoreType.rama, 0.2)
+        if score_file_content[0].strip() != "":
+            # first line is score function name, try to load it
+            try:
+                score_function = create_score_function(score_file_content[0].strip())
+            except RuntimeError as e:
+                print("ERROR in DockByPyRosetta: Cannot set specified score function from line 1!")
+                print("How to use the score function text file:")
+                print("1st line: Set base score function from Rosetta. If none is desired, keep 1st line blank")
+                print("all other lines: write lines in the format '<weight> <value>', separated by a space.")
+                exit(e)
+        # recreate or set weights
+        for line in score_file_content[1:]:
+            line = line.strip()
+            key_value = line.split(' ')
+            try:
+                score_function.set_weight(getattr(ScoreType, key_value[0]), float(key_value[1]))
+            except AttributeError as e:
+                print("ERROR in DockByPyRosetta: Unknown ScoreType.")
+                exit(e)
+            except ValueError as e:
+                print("ERROR in DockByPyRosetta: Illegal value.")
+                exit(e)
     else:
-        # arg1 is string, try to load respective score function
-        score_function = create_score_function(path_name)
-
+        # arg1 is score function name, try to load respective score function
+        try:
+            score_function = create_score_function(path_name)
+        except RuntimeError as e:
+            print("ERROR in MutateByPyRosetta: Cannot set specified score function!")
+            exit(e)
+    print("DockByPyRosetta: specified score function:")
+    print(score_function)
     return
 
 
@@ -116,7 +164,19 @@ def get_score_function():
 
 
 def parameter_handling(params):
-    if params[0] == SAVE_PDB:
+    """
+        Handle parameter which are written in the initial settings file and are specified as application module
+        parameter.
+        :param params: list of parameter name and values, where the first element is always the name.
+        :return: None.
+        """
+    # TODO explicit error with how to use it right
+    if params[0] == SET_SCORE_FUNCTION:
+        try:
+            set_score_function(params[1])
+        except IndexError:
+            exit("ERROR in DockByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == SAVE_PDB:
         global save_pdb
         if params[1] == TRUE:
             save_pdb = True
@@ -162,16 +222,6 @@ def prepare_files_for_tool(protein_path, out_path):
     """
 
     make_xml(out_path)
-
-    # score function
-    global score_function
-    score_function = create_score_function("ligand")
-    score_function.set_weight(ScoreType.fa_intra_rep, 0.004)
-    score_function.set_weight(ScoreType.fa_elec, 0.42)
-    score_function.set_weight(ScoreType.hbond_bb_sc, 1.3)
-    score_function.set_weight(ScoreType.hbond_sc, 1.3)
-    score_function.set_weight(ScoreType.rama, 0.2)
-
 
     return
 

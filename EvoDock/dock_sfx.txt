@@ -1,0 +1,6 @@
+ligand
+fa_intra_rep 0.004
+fa_elec 0.42
+hbond_bb_sc 1.3
+hbond_sc 1.3
+rama 0.2

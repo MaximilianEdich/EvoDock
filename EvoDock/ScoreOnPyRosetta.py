@@ -15,8 +15,14 @@ init()
 
 # endregion
 
-weight_mutagenesis = 0
+# region Fixed values and variables
+WEIGHT_MUTAGENESIS = "-weight-mutate"
+WEIGHT_APPLICATION = "-weight-apply"
+
+weight_mutagenesis = 1
 weight_application = 1
+
+# endregion
 
 
 def is_scoring_module():
@@ -34,8 +40,35 @@ def validate_data(protein_path, out_path):
     :param out_path: Path to the output folder of this run.
     :return: True, all checks are valid.
     """
+
     print("ScoreOnPyRosetta: Inputs are validated!")
     return
+
+
+def parameter_handling(params):
+    """
+    Handle parameter which are written in the initial settings file and are specified as score module parameter.
+    :param params: list of parameter name and values, where the first element is always the name.
+    :return: None.
+    """
+    if params[0] == WEIGHT_MUTAGENESIS:
+        global weight_mutagenesis
+        try:
+            weight_mutagenesis = float(params[1])
+        except IndexError:
+            exit("ERROR in ScoreOnPyRosetta: Argument(s) missing! " + str(params))
+        except ValueError:
+            exit("ERROR in ScoreOnPyRosetta: Weight value has to be float! " + str(params))
+    elif params[0] == WEIGHT_APPLICATION:
+        global weight_application
+        try:
+            weight_application = float(params[1])
+        except IndexError:
+            exit("ERROR in ScoreOnPyRosetta: Argument(s) missing! " + str(params))
+        except ValueError:
+            exit("ERROR in ScoreOnPyRosetta: Weight value has to be float! " + str(params))
+    else:
+        exit("ERROR in ScoreOnPyRosetta: unknown argument(s): " + str(params))
 
 
 def calculate_fitness(specific_results, score_function_mutagenesis, score_function_application):
@@ -79,7 +112,6 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
     print("score mutagenesis: " + str(score_mutate) + " | weight: " + str(weight_mutagenesis))
     print("score application: " + str(score_apply) + " | weight: " + str(weight_application))
     score = (score_mutate * weight_mutagenesis) + (score_apply * weight_application)
-    score = score / (weight_mutagenesis + weight_application)
     print("score final: " + str(score))
 
     return score

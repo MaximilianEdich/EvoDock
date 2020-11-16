@@ -154,6 +154,10 @@ def handle_module_params(params):
         return mutate_mod.parameter_handling(params[1:])
     if params[0] == MODULE_PARAM_APPLY:
         return apply_mod.parameter_handling(params[1:])
+    if params[0] == MODULE_PARAM_SCORE:
+        return score_mod.parameter_handling(params[1:])
+    if params[0] == MODULE_PARAM_FOLD:
+        return fold_mod.parameter_handling(params[1:])
 
     return
 

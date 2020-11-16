@@ -68,7 +68,10 @@ print("start timer")
 
 # region String Vars and Indecies
 # initial settings file values
+# task and termination
 TARGET_SCORE = "-targetscore"
+TERMINATE_TIME = "-terminate-by-time"
+TERMINATE_SCORE = "-terminate-by-score"
 TASK_TYPE = "-task"
 TASK_LIGAND_BINDING = "LIGAND-BINDING"
 TASK_PROTEIN_BINDING = "PROTEIN-BINDING"
@@ -77,27 +80,28 @@ TASKS = []
 # TODO add here more tasks
 TASKS.append(TASK_LIGAND_BINDING)
 
-CPU_CORE_NUMBER = "-cpu"
-MAX = "MAX"
-SEED = "-seed"
-LOOK_UP_TABLE = "-look-up-table-path"
+# init-pop-run-modes
 INITIAL_POPULATION = "-init-pop-run-mode"
-# init-pop create_and_quit <pop-size>
 INITIAL_POPULATION_NEW_STOP = "create-and-quit"
-# init-pop load_and_evolve <path-to-population>
 INITIAL_POPULATION_LOAD = "load-and-evolve"
-# init-pop create_and_evolve <pop-size>
 INITIAL_POPULATION_NEW_FULL_RUN = "create-and-evolve"
 # init-pop-create-mode fold/mutate
 INITIAL_POPULATION_CREATE_MODE = "-init-pop-create-mode"
 CREATE_VIA_FOLD = "fold"
 CREATE_VIA_MUTATE = "mutate"
+
+# protein specifications
 PROTEIN_PATH = "-prot-path"
 AA_PATH = "-res-id"
 SUBSTITUTIONS = "-substitutions"
+LOOK_UP_TABLE = "-look-up-table-path"
 
-TRUE = "TRUE"
-FALSE = "FALSE"
+# optional
+CPU_CORE_NUMBER = "-cpu"
+MAX = "MAX"
+SEED = "-seed"
+
+# pipeline modules
 MODULE_NAME_MUTATE = "-mutate"
 MODULE_NAME_APPLY = "-apply"
 MODULE_NAME_SCORE = "-score"
@@ -112,6 +116,10 @@ RECOMBINATION = "recombine"
 RECOMBINATION_CLASSIC = "recombine-classic"
 SELECT = "select"
 LOOP = "loop"
+
+# others
+TRUE = "TRUE"
+FALSE = "FALSE"
 
 # indices for lists
 ITERATION_COUNT_MUTATION_INDEX = 0
@@ -145,28 +153,32 @@ args = parser.parse_args()
 
 
 # region Specification of initial essential and optional values, set default values
-mds = MutateApplyScoreModule.MutateApplyScore()
+target_score = None
+terminate_time = None
+terminate_score = None
+task = ""
 initial_population_run_mode = ""
 initial_population_create_mode = ""
 start_population_size = 0
 load_population_path = ""
+
+original = [[], 0]
+protein_path = ""
+amino_acid_paths = []
+allowed_mutations = []
+number_of_mutable_aa = 0
+
+mds = MutateApplyScoreModule.MutateApplyScore()
 module_name_mutate = ""
 module_name_dock = ""
 module_name_score = ""
 module_name_fold = ""
-
-target_score = 0
-original = [[], 0]
-protein_path = ""
-mode = ""
-amino_acid_paths = []
-allowed_mutations = []
-number_of_mutable_aa = 0
-defined_target_score = False
-usable_cpu = multi_p.cpu_count()
-look_up_table_path = ""
 use_specific_mutate_out = None
 use_existent_mutate_out_path = None
+
+usable_cpu = multi_p.cpu_count()
+look_up_table_path = ""
+
 # endregion
 
 # region load files
@@ -358,8 +370,8 @@ for line in initial_settings_file_content:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
     elif split_text[0] == TASK_TYPE:
         # modification mode
-        mode = str(split_text[1])
-        if not mode in TASKS:
+        task = str(split_text[1])
+        if not task in TASKS:
             exit("Error in line " + str(line_index) + " of the initial settings file. Unknown mode. Use one of these: "
                  + str(TASKS))
     elif split_text[0] == CPU_CORE_NUMBER:
@@ -413,7 +425,7 @@ if initial_population_create_mode == "" and initial_population_run_mode != INITI
     print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION_CREATE_MODE +
           "\" Use: " + INITIAL_POPULATION_CREATE_MODE + " <mode>, where <mode> is one of these:")
     error_msg_create_init_pop_options()
-if not defined_target_score:
+if target_score is None:
     exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
 if protein_path != "":
     try:
@@ -1455,3 +1467,7 @@ if PLOT:
     plt.show()
 
 # endregion
+
+if __name__ == "__main__":
+    print("MAIN")
+

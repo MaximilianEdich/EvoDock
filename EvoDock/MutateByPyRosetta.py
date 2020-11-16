@@ -28,6 +28,20 @@ NONE = "NONE"
 TRUE = "TRUE"
 FALSE = "FALSE"
 
+SET_SCORE_FUNCTION = "-score-function"
+RELAX = "-relax"
+EXTRA_RELAX = "-extra-relax"
+RELAX_FAST = "FAST-RELAX"
+RELAX_CLASSIC = "CLASSIC-RELAX"
+RELAX_BOTH = "RELAX-BOTH"
+SAVE_PDB = "-save-pdb"
+PACK_RADIUS = "-pack-radius"
+ROTAMER_MOVES_NUMBER = "-rotamer-moves-number"
+BACKBONE_MOVES_NUMBER = "-backbone-moves-number"
+MAKE_POSES = "-make-poses"
+ROTAMER_MOVER = "-rotamer-mover"
+BACKBONE_MOVER = "-backbone-mover"
+
 # rotamer movers
 ROTAMER_MOVERS = []
 MOVER_ID_ROTAMER_TRIALS_MIN_MOVER = "ROTAMER-TRIALS-MIN-MOVER"
@@ -42,19 +56,6 @@ MOVER_ID_SMALL_MOVER = "SMALL-MOVER"
 BACKBONE_MOVERS.append(MOVER_ID_SMALL_MOVER)
 MOVER_ID_SHEAR_MOVER = "SHEAR-MOVER"
 BACKBONE_MOVERS.append(MOVER_ID_SHEAR_MOVER)
-
-RELAX = "-relax"
-EXTRA_RELAX = "-extra-relax"
-RELAX_FAST = "FAST-RELAX"
-RELAX_CLASSIC = "CLASSIC-RELAX"
-RELAX_BOTH = "RELAX-BOTH"
-SAVE_PDB = "-save-pdb"
-PACK_RADIUS = "-pack-radius"
-ROTAMER_MOVES_NUMBER = "-rotamer-moves-number"
-BACKBONE_MOVES_NUMBER = "-backbone-moves-number"
-MAKE_POSES = "-make-poses"
-ROTAMER_MOVER = "-rotamer-mover"
-BACKBONE_MOVER = "-backbone-mover"
 
 score_function = get_fa_scorefxn()
 
@@ -97,17 +98,59 @@ def validate_data(protein_path, out_path):
     return True
 
 
-def set_score_function(path_name, arg1_is_path=True):
-    """if arg1_is_path:
+def set_score_function(path_name):
+    """
+    Set the Rosetta score function of this module.
+    :param path_name: Name of one of Rosetta's score functions or path to a .txt file with score function base and
+    weights.
+    :return: None.
+    """
+    global score_function
+    if path_name[-4:] == ".txt":
         # open file and create new score function
-        global score_function
+        try:
+            score_file = open(path_name, 'r')
+            score_file_content = score_file.readlines()
+            score_file.close()
+        except FileNotFoundError:
+            score_file_content = None
+            exit("ERROR in MutateByPyRosetta: Score function file not found! " + path_name)
+        except PermissionError:
+            score_file_content = None
+            exit("ERROR in MutateByPyRosetta: Cannot open score function file! Permission denied! " + path_name)
+        # create empty score function
         score_function = ScoreFunction()
-        score_function.set_weight(ScoreType.fa_intra_rep, 0.004)
+        if score_file_content[0].strip() != "":
+            # first line is score function name, try to load it
+            try:
+                score_function = create_score_function(score_file_content[0].strip())
+            except RuntimeError as e:
+                print("ERROR in MutateByPyRosetta: Cannot set specified score function from line 1!")
+                print("How to use the score function text file:")
+                print("1st line: Set base score function from Rosetta. If none is desired, keep 1st line blank")
+                print("all other lines: write lines in the format '<weight> <value>', separated by a space.")
+                exit(e)
+        # recreate or set weights
+        for line in score_file_content[1:]:
+            line = line.strip()
+            key_value = line.split(' ')
+            try:
+                score_function.set_weight(getattr(ScoreType, key_value[0]), float(key_value[1]))
+            except AttributeError as e:
+                print("ERROR in MutateByPyRosetta: Unknown ScoreType.")
+                exit(e)
+            except ValueError as e:
+                print("ERROR in MutateByPyRosetta: Illegal value.")
+                exit(e)
     else:
-        # arg1 is string, try to load respective score function
-        global score_function
-        score_function = create_score_function(path_name)"""
-
+        # arg1 is score function name, try to load respective score function
+        try:
+            score_function = create_score_function(path_name)
+        except RuntimeError as e:
+            print("ERROR in MutateByPyRosetta: Cannot set specified score function!")
+            exit(e)
+    print("MutateByPyRosetta: specified score function:")
+    print(score_function)
     return
 
 
@@ -131,32 +174,47 @@ def get_initial_amino_acids(protein_path, amino_acid_paths):
 
 def parameter_handling(params):
     """
-    Handle parameter which are written in the inital settings file and are specified as mutagenesis module parameter.
+    Handle parameter which are written in the initial settings file and are specified as mutagenesis module parameter.
     :param params: list of parameter name and values, where the first element is always the name.
     :return: None.
     """
-    if params[0] == RELAX:
+    # TODO explicit error with how to use it right
+    if params[0] == SET_SCORE_FUNCTION:
+        try:
+            set_score_function(params[1])
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == RELAX:
         global relax_mode
-        if params[1] == NONE:
-            relax_mode = None
-        elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC or params[1] == RELAX_BOTH:
-            relax_mode = params[1]
-        else:
-            exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
+        try:
+            if params[1] == NONE:
+                relax_mode = None
+            elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC or params[1] == RELAX_BOTH:
+                relax_mode = params[1]
+            else:
+                exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == EXTRA_RELAX:
         global extra_relax
-        if params[1] == NONE:
-            extra_relax = None
-        elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC:
-            extra_relax = params[1]
-        else:
-            exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
+        try:
+            if params[1] == NONE:
+                extra_relax = None
+            elif params[1] == RELAX_FAST or params[1] == RELAX_CLASSIC:
+                extra_relax = params[1]
+            else:
+                exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == SAVE_PDB:
         global save_pdb
-        if params[1] == TRUE:
-            save_pdb = True
-        else:
-            save_pdb = False
+        try:
+            if params[1] == TRUE:
+                save_pdb = True
+            else:
+                save_pdb = False
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == PACK_RADIUS:
         try:
             radius = float(params[1])
@@ -165,6 +223,8 @@ def parameter_handling(params):
                 pack_radius = radius
         except ValueError:
             exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == ROTAMER_MOVES_NUMBER:
         try:
             number = int(params[1])
@@ -173,6 +233,8 @@ def parameter_handling(params):
                 number_of_rotamer_moves = number
         except ValueError:
             exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == BACKBONE_MOVES_NUMBER:
         try:
             number = int(params[1])
@@ -181,6 +243,8 @@ def parameter_handling(params):
                 number_of_backbone_moves = number
         except ValueError:
             exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == MAKE_POSES:
         try:
             number = int(params[1])
@@ -189,6 +253,8 @@ def parameter_handling(params):
                 make_poses = number
         except ValueError:
             exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == ROTAMER_MOVER:
         try:
             mover = str(params[1])
