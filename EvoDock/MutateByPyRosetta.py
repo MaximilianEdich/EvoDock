@@ -8,6 +8,7 @@ try:
     from pyrosetta.rosetta.protocols.minimization_packing import PackRotamersMover
     from pyrosetta.rosetta.protocols.minimization_packing import RotamerTrialsMinMover
     from pyrosetta.rosetta.protocols.minimization_packing import RotamerTrialsMover
+    from pyrosetta.rosetta.protocols.minimization_packing import MinMover
     from pyrosetta.rosetta.protocols.simple_moves import SmallMover
     from pyrosetta.rosetta.protocols.simple_moves import ShearMover
 
@@ -30,6 +31,7 @@ FALSE = "FALSE"
 
 SET_SCORE_FUNCTION = "-score-function"
 RELAX = "-relax"
+PREP_ONLY = "-prepare-only"
 EXTRA_RELAX = "-extra-relax"
 RELAX_FAST = "FAST-RELAX"
 RELAX_CLASSIC = "CLASSIC-RELAX"
@@ -58,10 +60,13 @@ MOVER_ID_SMALL_MOVER = "SMALL-MOVER"
 BACKBONE_MOVERS.append(MOVER_ID_SMALL_MOVER)
 MOVER_ID_SHEAR_MOVER = "SHEAR-MOVER"
 BACKBONE_MOVERS.append(MOVER_ID_SHEAR_MOVER)
+MOVER_ID_MIN_MOVER = "MIN-MOVER"
+BACKBONE_MOVERS.append(MOVER_ID_MIN_MOVER)
 
 score_function = get_fa_scorefxn()
 
 relax_mode = None
+prep_only = False
 save_pdb = False
 pack_radius = 8
 number_of_rotamer_moves = 1
@@ -71,6 +76,7 @@ rotamer_mover_id = MOVER_ID_ROTAMER_TRIALS_MIN_MOVER
 backbone_mover_id = NONE
 kT = 1.0
 n_moves = 5
+tolerance = 0.01
 extra_relax = None
 
 # endregion
@@ -174,6 +180,16 @@ def get_initial_amino_acids(protein_path, amino_acid_paths):
     return result
 
 
+def get_reformatted_amino_acids(protein_path, amino_acid_paths):
+    pose = pose_from_file(protein_path)
+    new_list = []
+    new_list = []
+    for entry in amino_acid_paths:
+        new_list.append(pose.pdb_info().pdb2pose(entry[0], int(entry[1])))
+
+    return new_list
+
+
 def parameter_handling(params):
     """
     Handle parameter which are written in the initial settings file and are specified as mutagenesis module parameter.
@@ -184,6 +200,15 @@ def parameter_handling(params):
     if params[0] == SET_SCORE_FUNCTION:
         try:
             set_score_function(params[1])
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == PREP_ONLY:
+        global prep_only
+        try:
+            if params[1] == TRUE:
+                prep_only = True
+            else:
+                prep_only = False
         except IndexError:
             exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == RELAX:
@@ -353,11 +378,16 @@ def prepare_files_for_tool(protein_path, out_path):
             c_relax = ClassicRelax()
             c_relax.set_scorefxn(score_fxn)
             c_relax.apply(test_pose)
+            relax_out_path_name = preparation_result_path(protein_path, out_path)
+            pose.dump_pdb(relax_out_path_name)
+            print("\nrelax done! Saved relaxed strucutre as " + str(relax_out_path_name) + "\n")
             score3 = score_fxn(test_pose)
             content += "classic: " + str(score3) + "\n"
         run_info_file = open(out_path + "/RELAX_information.txt", 'w')
         run_info_file.write(content)
         run_info_file.close()
+        if prep_only:
+            exit("Exit EvoDock. Preparation finished, saved relaxed structure(s).")
 
     return True
 
@@ -374,12 +404,14 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
     is_original = True
     load_pose = pose_from_file(protein_path)
 
+    # create copies
     poses = []
     for x in range(make_poses):
         new_pose = Pose()
         new_pose.assign(load_pose)
         poses.append(new_pose)
 
+    # apply mutations
     index = 0
     for mut in mutations:
         if mut != '':
@@ -413,6 +445,9 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
     move_map = MoveMap()
     for p in pack_list:
         move_map.set_bb(p, True)
+        if True:
+            move_map.set_chi(p, True)
+
     print(move_map)
     # for each pose
     mutagenesis_output = []
@@ -436,6 +471,11 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
             backbone_mover = SmallMover(move_map, kT, n_moves)
         elif backbone_mover_id == MOVER_ID_SHEAR_MOVER:
             backbone_mover = ShearMover(move_map, kT, n_moves)
+        elif backbone_mover_id == MOVER_ID_MIN_MOVER:
+            backbone_mover = MinMover()
+            backbone_mover.score_function(score_fxn)
+            backbone_mover.movemap(move_map)
+            backbone_mover.tolerance(tolerance)
 
         # init Rotamer Mover and apply repacking
         print(packer_task)

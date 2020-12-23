@@ -32,7 +32,7 @@ docking_protocol = None
 xml_protocol_path = ""
 xml_subst_list = []
 save_pdb = True
-make_poses = 1
+make_poses = 20
 fixed_files_path = None
 
 # endregion
@@ -241,6 +241,7 @@ def perform_application(application_input, out_path):
     # get score function
     score_fxn = score_function
 
+    # create copies per input pose
     poses = []
     for pose in application_input:
         pose_list = []
@@ -250,6 +251,7 @@ def perform_application(application_input, out_path):
             pose_list.append(new_pose)
         poses.append(pose_list.copy())
 
+    # get protocol, apply it to all poses
     protocol = docking_protocol
     suffix = 0
     for pose_list in poses:

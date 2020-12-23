@@ -33,11 +33,10 @@
 		<CompoundTranslate name="compound_translate" randomize_order="false" allow_overlap="false">
 			<Translate chain="X" distribution="uniform" angstroms="SUBST_TRANSLATE_ANG" cycles="SUBST_TRANSLATE_CYCLES"/>
 		</CompoundTranslate>
-		<Rotate name="rotate_X" chain="X" distribution="uniform" degrees="360" cycles="500"/>
+		<Rotate name="rotate_X" chain="X" distribution="uniform" degrees="360" cycles="SUBST_ROTATE_CYCLES"/>
 		<SlideTogether name="slide_together" chains="X"/>
-		<HighResDocker name="high_res_docker" cycles="6" repack_every_Nth="3" scorefxn="ligand_soft_rep" movemap_builder="docking"/>
+		<HighResDocker name="high_res_docker" cycles="SUBST_HIGH_RES_DOCK_CYCLES" repack_every_Nth="SUBST_REPACK_EVERY_NTH" scorefxn="ligand_soft_rep" movemap_builder="docking"/>
 		<FinalMinimizer name="final" scorefxn="hard_rep" movemap_builder="final"/>
-		<InterfaceScoreCalculator name="add_scores" chains="X" scorefxn="hard_rep"/>
 		compound movers
 		<ParsedProtocol name="low_res_dock">
 			<Add mover_name="compound_translate"/>
@@ -52,6 +51,5 @@
 	<PROTOCOLS>
 		<Add mover_name="low_res_dock"/>
 		<Add mover_name="high_res_dock"/>
-		<Add mover_name="add_scores"/>
 	</PROTOCOLS>
 </ROSETTASCRIPTS>

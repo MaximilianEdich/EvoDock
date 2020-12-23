@@ -93,7 +93,7 @@ def check_imported_modules():
     return True
 
 
-def validate_module_data(protein_path, out_path):
+def validate_module_data(protein_path, out_path, skip_application):
     """
     Passes the validation task to the single modules and checks, if all settings and inputs for each module
     are validated.
@@ -102,7 +102,8 @@ def validate_module_data(protein_path, out_path):
     :return: True, if all modules have validated their settings and input.
     """
     mutate_mod.validate_data(protein_path, out_path)
-    apply_mod.validate_data(protein_path, out_path)
+    if not skip_application:
+        apply_mod.validate_data(protein_path, out_path)
     score_mod.validate_data(protein_path, out_path)
     fold_mod.validate_data(protein_path, out_path)
     print("All modules validated!\n")
@@ -119,7 +120,7 @@ def preparation_result_path(protein_path, out_path):
     return mutate_mod.preparation_result_path(protein_path, out_path)
 
 
-def prepare_tool(protein_path, out_path):
+def prepare_tool(protein_path, out_path, skip_application):
     """
 
     :param out_path:
@@ -127,7 +128,8 @@ def prepare_tool(protein_path, out_path):
     :return:
     """
     mutate_mod.prepare_files_for_tool(protein_path, out_path)
-    apply_mod.prepare_files_for_tool(protein_path, out_path)
+    if not skip_application:
+        apply_mod.prepare_files_for_tool(protein_path, out_path)
 
     return
 
@@ -149,6 +151,9 @@ def get_initial_amino_acids(protein_path, amino_acid_paths):
     return mutate_mod.get_initial_amino_acids(protein_path, amino_acid_paths)
 
 
+def get_reformatted_amino_acids(protein_path, amino_acid_paths):
+    return mutate_mod.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+
 # endregion
 
 # region Pipeline input-output flow
@@ -160,16 +165,18 @@ class MutateApplyScore:
         self.amino_acid_paths = None
         self.use_specific_mutate_out = True
         self.use_existent_mutate_out_path = None
+        self.skip_application = False
         return
 
     def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-                   use_existent_mutate_out_path):
+                   use_existent_mutate_out_path, skip_application):
         self.original_individual = original_individual
         self.out_path = out_path
         self.protein_path = protein_path
         self.amino_acid_paths = amino_acid_paths
         self.use_specific_mutate_out = use_specific_mutate_out
         self.use_existent_mutate_out_path = use_existent_mutate_out_path
+        self.skip_application = skip_application
         return
 
 
@@ -276,6 +283,7 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
 
     # do error prevention
     if not mas.use_specific_mutate_out:
+        # set PDB saving to true, since these are the input for the next step
         mutate_mod.parameter_handling([mutate_mod.SAVE_PDB, mutate_mod.TRUE])
 
     # generate mutagenesis output as input for the application and keep results for scoring
@@ -290,11 +298,15 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
                                                      mas.amino_acid_paths, fold_instead_mutate,
                                                      mas.use_existent_mutate_out_path)
     # perform application
-    specific_results[1] = run_application(mutant_out_path, specific_results[0], mas.use_specific_mutate_out,
+    if not mas.skip_application:
+        specific_results[1] = run_application(mutant_out_path, specific_results[0], mas.use_specific_mutate_out,
                                           mas.use_existent_mutate_out_path)
 
     # evaluate all scores for final fitness
-    fitness_score = calculate_fitness_score(specific_results)
+    evaluation_results = calculate_fitness_score(specific_results)
+    fitness_score = evaluation_results[0]
+    mut_pose = evaluation_results[1]
+    apply_pose = evaluation_results[2]
 
     return fitness_score
 

@@ -94,8 +94,9 @@ CREATE_VIA_MUTATE = "mutate"
 
 # protein specifications
 PROTEIN_PATH = "-prot-path"
-AA_PATH = "-res-id"
+RES_ID = "-res-id"
 SUBSTITUTIONS = "-substitutions"
+SYMMETRY = "-symmetry"
 LOOK_UP_TABLE = "-look-up-table-path"
 
 # optional
@@ -110,6 +111,7 @@ MODULE_NAME_SCORE = "-score"
 MODULE_NAME_FOLD = "-fold"
 USE_SPECIFIC_MUTATE_OUT = "-use-specific-mutate-out"
 USE_EXISTENT_MUTATE_OUT_PATH = "-use-existent-mutate-out-path"
+SKIP_APPLICATION = "-skip-application"
 
 # strings for routine commands
 MUTATE = "mutate"
@@ -145,14 +147,78 @@ parser.add_argument("-s", "--settings", type=str, required=True,
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
                                                                      "for a list of all commands.")
 parser.add_argument("-o", "--out", type=str, required=False, help="Path to desired output destination.")
-parser.add_argument("-doc", "--documentation", type=str, required=False, help="Path to desired output destination.")
+parser.add_argument("-doc", "--documentation", action='store_true', required=False, help="Show documention of all commands.")
+parser.add_argument("-p", "--protein_path", type=str, required=False, help="Path to input protein.")
+parser.add_argument("-fn", "--folder_name", type=str, required=False, help="Set alternative folder name.")
 args = parser.parse_args()
 # TODO specify optional technical settings
 # endregion
 
+# region Documentation print
+# TODO args.documentation print out all commands + commands of specified modules
+if args.documentation:
+    print("Documentation of EvoDock commands:")
+    print("Initial settings file flags:")
+    print("required flags:")
+    print(INITIAL_POPULATION + " <mode> <arg>")
+    print("\tSpecify how to get the initial population and how to proceed, where mode is either '"
+          "" + INITIAL_POPULATION_NEW_STOP + "', '" + INITIAL_POPULATION_LOAD + "', or '"
+          + INITIAL_POPULATION_NEW_FULL_RUN + "', with arg as the number of individuals in the initial "
+          "population or the path to an initial population in case of loading it.")
+    print("\n\texamples:")
+    print("\t" + INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_STOP + " 100")
+    print("\t" + INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_FULL_RUN + " 100")
+    print("\t" + INITIAL_POPULATION + " " + INITIAL_POPULATION_LOAD + " load_population.txt")
+    print(TASK_TYPE + " <mode>")
+    print("\tSpecify the type of optimization problem. Valid inputs are:")
+    for task_mode in TASKS:
+        print("\t" + str(task_mode))
+    print(TARGET_SCORE + " <n>")
+    print("\tSpecify the target score, which defines the best fitness. The meaning of the score depends on the "
+          "specified task. <n> >must be either a float "
+          "value or '" + INFINITE + "' or '" + NEGATIVE_INFINITE + "'.")
+    print(PROTEIN_PATH + " <path>")
+    print("\tSpecify the path to the input PDB.")
+    print(RES_ID + " <chain> <id>")
+    print("\tEnter the residue chain and id of a residue of interest, that can be modified. "
+          "Use this specification multiple times to specify multiple residues.")
+    print(SUBSTITUTIONS + " <list>")
+    print("\tSpecify allowed mutations, where <list> consists of single letter AA codes separated by a comma. "
+          "Giving no argument allows all 20 AAs. Use this specification multiple times, where the order is respective "
+          "to the order of '" + RES_ID + "'-commands.")
+    print("\n\texample:")
+    print("\t" + SUBSTITUTIONS + " D,L,A")
+    print(MODULE_NAME_MUTATE + " <path>")
+    print("\tSpecify the path to the used mutagenesis module.")
+    print(MODULE_NAME_APPLY + " <path>")
+    print("\tSpecify the path to the used application module.")
+    print(MODULE_NAME_SCORE + " <path>")
+    print("\tSpecify the path to the used evaluation module.")
+    print("\noptional flags:")
+    print(TERMINATE_SCORE + " <n>")
+    print("\t")
+    print(TERMINATE_TIME + " <time>")
+    print("\t")
+    print(CPU_CORE_NUMBER + " <n>")
+    print("\tSpecify the number of cores used for parallel computation. If <n> is "
+          "'" + MAX + "', all available cores are used.")
+    print(SEED + " <seed>")
+    print("\tSet the seed of the random generator for the run. Affects only random choices of the evolution process, "
+          "does not affect pipeline modules.")
+    print(LOOK_UP_TABLE + " <file-path>")
+    print("\tSpecify path to a text file with list of individuals, like a history")
+    print()
+    print("\t")
+    print()
+    print("\t")
+    print()
+    print("\t")
 
-# TODO args.documentation print out all commands of initial settings file + commands of specified modules
+    print("\nRoutine file commands:")
+    print("TODO")
+    exit()
 
+# endregion
 
 # region Specification of initial essential and optional values, set default values
 target_score = None
@@ -177,9 +243,11 @@ module_name_score = ""
 module_name_fold = ""
 use_specific_mutate_out = None
 use_existent_mutate_out_path = None
+skip_application = False
 
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
+symmetry = None
 
 # endregion
 
@@ -238,6 +306,8 @@ def error_msg_create_init_pop_options():
 
 # region check initial settings file content and validate input format
 print("check initial settings file content flags and validate input format...")
+res_id_is_pdb_code = False
+
 line_index = 0
 module_params = []
 # TODO check exceptions (IndexError)
@@ -298,6 +368,7 @@ for line in initial_settings_file_content:
                 # set it to max number
                 try:
                     import sys
+
                     if split_text[1] == INFINITE:
                         target_score = sys.maxsize
                     else:
@@ -359,6 +430,13 @@ for line in initial_settings_file_content:
             # TODO check if it is a folder
         except IndexError:
             exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
+    elif split_text[0] == SKIP_APPLICATION:
+        # set setting for skipping the application step and do right after mutagenesis the evaluation
+        try:
+            if split_text[1] == TRUE:
+                skip_application = True
+        except IndexError:
+            exit("Error in line " + str(line_index) + " of the initial settings file. Argument missing!")
 
     elif split_text[0] == MODULE_NAME_MUTATE:
         # specified mutation module
@@ -395,9 +473,22 @@ for line in initial_settings_file_content:
             # not empty, allow only specified mutations
             allowed = split_text[1].split(',')
             allowed_mutations.append(allowed)
-    elif split_text[0] == AA_PATH:
+    elif split_text[0] == RES_ID:
         # residue id and/or path, depends on the used tools TODO argument check
-        amino_acid_paths.append(str(split_text[1]))
+        if len(split_text) == 3:
+            # use chain + id
+            res_id_is_pdb_code = True
+            amino_acid_paths.append([split_text[1], int(split_text[2])])
+        else:
+            # use only number of residue, which is not the same as id (So 1 = 1st AA, even if its id is 16)
+            amino_acid_paths.append(int(split_text[1]))
+    elif split_text[0] == SYMMETRY:
+        # if PDB consists of symmetric chains
+        if len(split_text) == 3:
+            symmetry = [split_text[1], split_text[2]]
+        else:
+            print("ERROR in EvoDock: '" + SYMMETRY + " <a> <b>' requires two arguments:")
+            exit("<a>: Chain this is given in res-id\n<b>: Chain id that replaced <a>.")
     elif split_text[0] == PROTEIN_PATH:
         # protein pdb code
         try:
@@ -435,6 +526,10 @@ for line in initial_settings_file_content:
         except IndexError as e:
             exit("Error in line " + str(line_index) + ": Missing argument, path to look-up-table.")
     elif split_text[0] == "":
+        # allow blank lines
+        pass
+    elif split_text[0][0] == "#":
+        # allow comments
         pass
 
     elif (split_text[0] == MutateApplyScoreModule.MODULE_PARAM_MUTATE
@@ -446,14 +541,23 @@ for line in initial_settings_file_content:
     else:
         exit("Error, undefined keywords in line " + str(line_index) + " of the initial settings file: " + split_text[0])
 
+    # if input protein is given via command line
+    if args.protein_path is not None:
+        protein_path = args.protein_path
+
 # endregion
 
 # region catch undefined essential values
 number_of_mutable_aa = len(amino_acid_paths)
+if res_id_is_pdb_code:
+    for entry in amino_acid_paths:
+        if isinstance(entry, int):
+            exit("ERROR in EvoDock: Unconsistent res-id format. Use either consecutive numbering order ids or "
+                 "PDB format with chain + residue number. Use only one format for all 'res-id' occurrences!")
 if len(amino_acid_paths) != len(allowed_mutations):
     print("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
-         "are not equal!")
-    exit("use equal amount of '" + AA_PATH + "' and '" + SUBSTITUTIONS + "'!")
+          "are not equal!")
+    exit("use equal amount of '" + RES_ID + "' and '" + SUBSTITUTIONS + "'!")
 if initial_population_run_mode == "":
     print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION + "\"! Use these options:")
     error_msg_initial_population_options()
@@ -476,7 +580,8 @@ else:
 if module_name_mutate == "":
     exit("Error in initial settings file: You have to specify the mutation-module via \"" + MODULE_NAME_MUTATE + "\"!")
 if module_name_apply == "":
-    exit("Error in initial settings file: You have to specify the application-module via \"" + MODULE_NAME_APPLY + "\"!")
+    exit(
+        "Error in initial settings file: You have to specify the application-module via \"" + MODULE_NAME_APPLY + "\"!")
 if module_name_score == "":
     exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
 if module_name_fold == "":
@@ -511,6 +616,8 @@ else:
 
 # build output path and create folder
 out_path = out_destination + "EvoDock_output_run_" + run_string
+if args.folder_name is not None:
+    out_path = out_destination + args.folder_name
 try:
     Path(out_path).mkdir(parents=True, exist_ok=False)
 except FileExistsError:
@@ -530,8 +637,8 @@ except PermissionError as e:
     exit("No permission for directory. " + str(e))
 # endregion
 
-# region MASM set up
-# init MASM
+# region MASM and amino acid paths set up
+# init MASM with modules
 print("initialize MutateApplyScoreModule: import specified modules...")
 MutateApplyScoreModule.init(module_name_mutate, module_name_apply, module_name_score, module_name_fold)
 MutateApplyScoreModule.check_imported_modules()
@@ -545,18 +652,23 @@ for module_param_list in module_params:
         pass
 
 # validate and prepare tools and maybe update protein path
-MutateApplyScoreModule.validate_module_data(protein_path, out_path)
-MutateApplyScoreModule.prepare_tool(protein_path, out_path)
+MutateApplyScoreModule.validate_module_data(protein_path, out_path, skip_application)
+MutateApplyScoreModule.prepare_tool(protein_path, out_path, skip_application)
 protein_path = MutateApplyScoreModule.preparation_result_path(protein_path, out_path)
 print(protein_path)
+
+if res_id_is_pdb_code:
+    amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+original[0] = MutateApplyScoreModule.get_initial_amino_acids(protein_path, amino_acid_paths)
+
 mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-               use_existent_mutate_out_path)
+               use_existent_mutate_out_path, skip_application)
 
 # endregion
 
+
 print("IMPORTS AND FILE LOADINGS DONE!\n")
 # init original individual and print loaded info summary
-original[0] = MutateApplyScoreModule.get_initial_amino_acids(protein_path, amino_acid_paths)
 print("original individual + amino acid paths:")
 print(original[0])
 print(amino_acid_paths)
@@ -1169,8 +1281,12 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     current_time = datetime.datetime.now()
     run_info_file_content = "Run information of run " + run_string + "\n"
     run_info_file_content += "Run time: " + str(current_time - start_time) + "\n"
+    # # reference protein AAs
+    run_info_file_content += "\n\n\nReference Protein amino acids:\n"
+    for aa in original:
+        run_info_file_content += str(aa) + "\n"
     # # Initial Settings File - Content
-    run_info_file_content += "\n\n\nInitial Settings File - Content:\n"
+    run_info_file_content += "\n\nInitial Settings File - Content:\n"
     for file_line in initial_settings_file_content:
         run_info_file_content += file_line
     # # Routine File - Content
@@ -1200,6 +1316,7 @@ def check_routine():
     # init error list and index
     routine_errors = []
     index = 0
+    in_loop = False
     # for each line in file
     for routine in routine_file_content:
         error = None
@@ -1210,6 +1327,8 @@ def check_routine():
         if len(split_command) == 1:
             if not routine == "\n":
                 undefined = True
+            else:
+                in_loop = False
         else:
             if split_command[0][0] == '#':
                 # comment line
@@ -1278,6 +1397,12 @@ def check_routine():
                         split_command[1]) + ". Must be float or integer"
 
             elif split_command[0] == LOOP:
+                if in_loop:
+                    # nested loop detected
+                    # TODO warning collection
+                    print("WARNING: Nested loop in routine file. Only the inner loop will be repeated, since nested "
+                          "loops do not work!")
+                in_loop = True
                 try:
                     repeat_number = int(split_command[1])
                     if repeat_number < 1:
@@ -1285,7 +1410,7 @@ def check_routine():
                                 + str(index) + ": " + str(split_command[1] + ". Must be an int, >= 1")
                 except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
-                        split_command[1]) + ". Must bean integer"
+                        split_command[1]) + ". Must be a positive integer"
             else:
                 undefined = True
         if undefined:
@@ -1307,7 +1432,7 @@ def terminate_by_time():
     if terminate_time is None:
         return False
     # TODO check time format and test
-    #if (datetime.datetime.now() - start_time) > int(terminate_time):
+    # if (datetime.datetime.now() - start_time) > int(terminate_time):
     #    print("EvoDock: Termination caused by specified runtime.")
     #    return True
     return False
@@ -1350,6 +1475,7 @@ def perform_routine(input_population):
 
     # run routine
     routine_step = 0
+    selection_step = 0
     loop_number = 0
     loop_jump = 0
     while routine_step < len(routine_file_content):
@@ -1396,7 +1522,9 @@ def perform_routine(input_population):
 
                 best_scores_over_time.append(input_population[0][1])
                 average_scores_over_time.append(ger_average_score(input_population))
-                save_output(input_population, best_scores_over_time, average_scores_over_time, "-intermediate result-")
+                selection_step += 1
+                save_output(input_population, best_scores_over_time, average_scores_over_time,
+                            "-intermediate result- step " + str(selection_step))
             elif split_command[0] == LOOP:
                 # set repeat number and point
                 loop_number = int(split_command[1]) - 1
@@ -1510,6 +1638,19 @@ print("Number of accepted recombination products: " + str(iterationCounts[ITERAT
 
 # ## Save final Output
 save_output(population, best_scores, average_scores)
+if look_up_scores != []:
+    extended_histroy = []
+    for entry in total_history:
+        extended_histroy.append(entry)
+    for entry in look_up_scores:
+        contained = False
+        for added_entry in extended_histroy:
+            if entry[0] == added_entry[0]:
+                contained = True
+                break
+        if not contained:
+            extended_histroy.append(entry)
+    save_population_list(extended_histroy, "history_plus_look_up_table")
 end_time = datetime.datetime.now()
 print("Run time: " + str(end_time - start_time))
 
@@ -1544,4 +1685,3 @@ if PLOT:
 
 if __name__ == "__main__":
     print("MAIN")
-

@@ -1,1 +1,19 @@
-python3 EvoDock.py -s initial_settings.txt -r routine.txt -o multip_test/
+python3 EvoDock.py -s is_exp/is_exp2_1MET.txt -r routine.txt -o results_exp/exp2_b/1MET/
+python3 EvoDock.py -s is_exp/is_exp2_1MET.txt -r routine.txt -o results_exp/exp2_b/1MET/
+python3 ResultsReader.py -r results_exp/exp2_b/1MET/ -i 4
+
+python3 EvoDock.py -s is_exp/is_exp2_1OGX.txt -r routine.txt -o results_exp/exp2_b/1OGX/
+python3 EvoDock.py -s is_exp/is_exp2_1OGX.txt -r routine.txt -o results_exp/exp2_b/1OGX/
+python3 ResultsReader.py -r results_exp/exp2_b/1OGX/ -i 4
+
+python3 EvoDock.py -s is_exp/is_exp2_1RSZ.txt -r routine.txt -o results_exp/exp2_b/1RSZ/
+python3 EvoDock.py -s is_exp/is_exp2_1RSZ.txt -r routine.txt -o results_exp/exp2_b/1RSZ/
+python3 ResultsReader.py -r results_exp/exp2_b/1RSZ/ -i 4
+
+python3 EvoDock.py -s is_exp/is_exp2_1GWR.txt -r routine.txt -o results_exp/exp2_b/1GWR/
+python3 EvoDock.py -s is_exp/is_exp2_1GWR.txt -r routine.txt -o results_exp/exp2_b/1GWR/
+python3 ResultsReader.py -r results_exp/exp2_b/1GWR/ -i 4
+
+python3 EvoDock.py -s is_exp/is_exp2_2PQL.txt -r routine.txt -o results_exp/exp2_b/2PQL/
+python3 EvoDock.py -s is_exp/is_exp2_2PQL.txt -r routine.txt -o results_exp/exp2_b/2PQL/
+python3 ResultsReader.py -r results_exp/exp2_b/2PQL/-i 4

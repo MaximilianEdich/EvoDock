@@ -10,6 +10,13 @@ EvoDock/molecules/*
 EvoDock/molfile2params/*
 EvoDock/initial_settings_folder/*
 EvoDock/results*/
+EvoDock/input_*/
+EvoDock/Exp_input/*
+EvoDock/is_exp*/*
+EvoDock/mutate_*/*
+EvoDock/commands.txt
+EvoDock/PyMOL*/*
+EvoDock/relax_out/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -141,3 +148,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 EvoDock/.idea/workspace.xml
+EvoDock/1KJG.clean.pdb
+EvoDock/1KJG.pdb
+EvoDock/c3.txt
+EvoDock/c_final_3.txt
+*.txt
+EvoDock/test_out/results1/ResultsReader_out_table.xlsx

@@ -7,6 +7,8 @@ import xlsxwriter
 parser = argparse.ArgumentParser(description="...")
 parser.add_argument("-r", "--results", type=str, required=True,
                     help="Results Folder with all results")
+parser.add_argument("-i", "--index_sort", type=str, required=True,
+                    help="Index of sorting list.")
 args = parser.parse_args()
 
 dirs = os.listdir(args.results)
@@ -33,14 +35,33 @@ for directory in dirs:
 
 # sort summary for faster copy paste
 new_summary = []
-sort_pattern = [['L', 'P', 'D'], ['P', 'W', 'F'], ['V', 'L', 'M'], ['D', 'R', 'N'], ['V', 'D', 'M']]
+sort_pattern = []
+sort_pattern.append([['L', 'P', 'D'], ['P', 'W', 'F'], ['V', 'L', 'M'], ['D', 'R', 'N'], ['V', 'D', 'M']]) # 0 2pql
+sort_pattern.append([['D', 'G', 'G', 'Y'], ['M', 'D', 'R', 'N'], ['P', 'W', 'F', 'L'], ['P', 'D', 'V', 'L'], ['W', 'G', 'V', 'C']]) # 1 1ane
+sort_pattern.append([['E', 'L', 'F', 'H'], ['M', 'D', 'R', 'N'], ['W', 'G', 'V', 'C'], ['P', 'W', 'F', 'L'], ['P', 'D', 'V', 'L']]) # 2 1gwr
+sort_pattern.append([['D', 'G', 'F', 'I'], ['M', 'D', 'R', 'N'], ['W', 'G', 'V', 'C'], ['P', 'W', 'F', 'L'], ['P', 'D', 'V', 'L']]) # 3 1met
+sort_pattern.append([['L', 'C', 'C', 'H'], ['P', 'W', 'F', 'L'], ['P', 'D', 'V', 'L'], ['M', 'D', 'R', 'N'], ['W', 'G', 'V', 'C']]) # 4 1nja
+sort_pattern.append([['N', 'F', 'M', 'W'], ['P', 'W', 'F', 'L'], ['P', 'D', 'V', 'L'], ['M', 'D', 'R', 'N'], ['W', 'G', 'V', 'C']]) # 5 1ogx
+sort_pattern.append([['F', 'M', 'H'], ['P', 'W', 'F'], ['L', 'P', 'D'], ['V', 'L', 'M'], ['D', 'R', 'N']]) # 6 1rsz
+sort_index = int(args.index_sort)
+iteration = 0
 while len(sort_pattern) > 0:
-    for entry in summary:
-        if len(sort_pattern) == 0:
+    iteration+= 1
+    if iteration >= 1000:
+        sort_index += 1
+        iteration = 0
+        new_summary = []
+        if sort_index >= len(sort_pattern):
+            new_summary = summary
             break
-        if entry[0] == sort_pattern[0]:
+    if sort_pattern[sort_index] == []:
+        break
+    for entry in summary:
+        if sort_pattern[sort_index] == []:
+            break
+        if entry[0] == sort_pattern[sort_index][0]:
             new_summary.append(entry)
-            sort_pattern.remove(sort_pattern[0])
+            sort_pattern[sort_index].remove(sort_pattern[sort_index][0])
 summary = new_summary
 
 times = []
