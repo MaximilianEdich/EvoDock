@@ -6,45 +6,16 @@ created and developed by Maximilian Edich at Universitaet Bielefeld.
 
 VERSION = "0.20_12"
 
-
 # region Imports
 print("Import core modules...")
-try:
-    import random
-except ImportError as e:
-    random = None
-    exit("Error: Import of \"random\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
-try:
-    import argparse
-except ImportError as e:
-    argparse = None
-    exit("Error: Import of \"argparse\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
-try:
-    import datetime
-except ImportError as e:
-    datetime = None
-    exit("Error: Import of \"datetime\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
-try:
-    import ast
-except ImportError as e:
-    ast = None
-    exit("Error: Import of \"ast\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
-try:
-    from pathlib import Path
-except ImportError as e:
-    Path = None
-    exit("Error: Import of \"Path\" from \"pathlib\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
-try:
-    import multiprocessing as multi_p
-except ImportError as e:
-    multi_p = None
-    exit("Error: Import of \"multiprocessing\" failed. Make sure to provide this module, since it is essential. "
-         "Error Message: " + str(e))
+
+import random
+from itertools import product
+import argparse
+import datetime
+import ast
+from pathlib import Path
+import multiprocessing as multi_p
 
 try:
     import MutateApplyScoreModule
@@ -101,9 +72,11 @@ RES_ID = "-res-id"
 SUBSTITUTIONS = "-substitutions"
 SYMMETRY = "-symmetry"
 LOOK_UP_TABLE = "-look-up-table-path"
-SUBST_MATRIX = "-substitution-matrix"
+SUBST_MATRIX = "-substitution-matrix"  # TODO
+BRUTE_FORCE = "-brute-force"
+INCLUDE_MUTANT = "-include-mutant"
 
-# optional
+# optional technical settings
 CPU_CORE_NUMBER = "-cpu"
 MAX = "MAX"
 SEED = "-seed"
@@ -151,7 +124,8 @@ parser.add_argument("-s", "--settings", type=str, required=True,
 parser.add_argument("-r", "--routine", type=str, required=True, help="Path to the routine file. See the documentation"
                                                                      "for a list of all commands.")
 parser.add_argument("-o", "--out", type=str, required=False, help="Path to desired output destination.")
-parser.add_argument("-doc", "--documentation", action='store_true', required=False, help="Show documention of all commands.")
+parser.add_argument("-doc", "--documentation", action='store_true', required=False,
+                    help="Show documention of all commands.")
 parser.add_argument("-p", "--protein_path", type=str, required=False, help="Path to input protein.")
 parser.add_argument("-fn", "--folder_name", type=str, required=False, help="Set alternative folder name.")
 args = parser.parse_args()
@@ -168,7 +142,7 @@ if args.documentation:
     print("\tSpecify how to get the initial population and how to proceed, where mode is either '"
           "" + INITIAL_POPULATION_NEW_STOP + "', '" + INITIAL_POPULATION_LOAD + "', or '"
           + INITIAL_POPULATION_NEW_FULL_RUN + "', with arg as the number of individuals in the initial "
-          "population or the path to an initial population in case of loading it.")
+                                              "population or the path to an initial population in case of loading it.")
     print("\n\texamples:")
     print("\t" + INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_STOP + " 100")
     print("\t" + INITIAL_POPULATION + " " + INITIAL_POPULATION_NEW_FULL_RUN + " 100")
@@ -236,7 +210,7 @@ initial_population_create_mode = ""
 start_population_size = 0
 load_population_path = ""
 
-original = [[], 0]
+reference_protein = [[], 0]
 protein_path = ""
 amino_acid_paths = []
 allowed_mutations = []
@@ -254,6 +228,8 @@ skip_application = False
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
 symmetry = None
+brute_force_init_pop = False
+include_mutants = []
 
 # endregion
 
@@ -491,10 +467,26 @@ for line in initial_settings_file_content:
     elif split_text[0] == SYMMETRY:
         # if PDB consists of symmetric chains
         if len(split_text) == 3:
-            symmetry = [split_text[1], split_text[2]]
+            symmetry = [split_text[1], split_text[2]]  # TODO use it
         else:
             print("ERROR in EvoDock: '" + SYMMETRY + " <a> <b>' requires two arguments:")
             exit("<a>: Chain this is given in res-id\n<b>: Chain id that replaced <a>.")
+    elif split_text[0] == BRUTE_FORCE:
+        # set if brute force is used to find new solutions in initial population creation.
+        param = split_text[1]
+        if param == TRUE:
+            brute_force_init_pop = True
+        else:
+            brute_force_init_pop = False
+    elif split_text[0] == INCLUDE_MUTANT:
+        # set if brute force is used to find new solutions in initial population creation.
+        if len(split_text) == 1:
+            exit("ERROR in EvoDock: '" + INCLUDE_MUTANT + "' requires list as second argument, where items are"
+                                                          "separated only with a comma!")
+        else:
+            mutant_AAs_list = split_text[1].split(',')
+            include_mutants.append(mutant_AAs_list)
+
     elif split_text[0] == PROTEIN_PATH:
         # protein pdb code
         try:
@@ -591,9 +583,15 @@ if module_name_score == "":
 if module_name_fold == "" and initial_population_create_mode == CREATE_VIA_FOLD:
     exit("Error in initial settings file: You have to specify the folding-module "
          "via \"" + MODULE_NAME_FOLD + "\" or create the initial population via mutagenesis instead of folding!")
-if not(use_specific_mutate_out == True or use_specific_mutate_out == False or use_specific_mutate_out == None):
+if not (use_specific_mutate_out == True or use_specific_mutate_out == False or use_specific_mutate_out == None):
     exit("Error in initial settings file: You have to specify which mutagenesis output is used via"
          " \"" + USE_SPECIFIC_MUTATE_OUT + " <b>\", with <b> = 'TRUE' or 'FALSE'!")
+if include_mutants != []:
+    # check if all included mutants have same number of mutable AAs as reference protein
+    for item in include_mutants:
+        if len(item) != number_of_mutable_aa:
+            exit("ERROR in EvoDock: One included mutant has not expected format."
+                 " Expected were " + str(number_of_mutable_aa) + " AAs, input was: " + str(len(item)))
 
 # endregion
 
@@ -670,18 +668,18 @@ print(protein_path)
 if res_id_is_pdb_code:
     amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
 # get AAs of reference protein
-original[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
+reference_protein[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
 # quick reference for several non-changing params
-mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
+mds.set_values(reference_protein, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
                use_existent_mutate_out_path, skip_application)
 
 # endregion
 
 
 print("IMPORTS AND FILE LOADINGS DONE!\n")
-# init original individual and print loaded info summary
-print("original individual + amino acid paths:")
-print(original[0])
+# init reference protein individual and print loaded info summary
+print("reference protein's AAs + amino acid paths:")
+print(reference_protein[0])
 print(amino_acid_paths)
 print("\nNumber of cores, detected for multi-processing: " + str(multi_p.cpu_count()))
 print("Use of multi-processing is restricted to: " + str(usable_cpu) + "\n")
@@ -787,10 +785,33 @@ def get_random_genes():
     """
     genes = []
     for aa in range(number_of_mutable_aa):
-        # for each amino acid, add a random amino acid from specified lists
+        # for each AA position of interest, add a random amino acid from specified lists
         genes.append(random.choice(allowed_mutations[aa]))
 
     return genes
+
+
+def get_brute_forced_genes():
+
+    # modifiy genes list and check total history
+    input_list = []
+    for aa in range(number_of_mutable_aa):
+        input_list.append(allowed_mutations[aa])
+    print("brute force!")
+    print(input_list)
+    all_combinations = list(product(*[]))
+    for comb in all_combinations:
+        genes = list(comb)
+        # test history
+        is_old = False
+        for history_entry in total_history:
+            if history_entry[0] == genes:
+                is_old = True
+                break
+        if not is_old:
+            return genes
+
+    return
 
 
 def get_random_individual(rec_depth=0):
@@ -819,6 +840,16 @@ def get_random_individual(rec_depth=0):
                 print("Please lower the new-random-individual-recursion-limit in the technical settings!"
                       "Error Message: " + str(error))
                 # return None, if maximum recursion depth is reached
+                # if brute-force is on, try finding possible solutions
+                if brute_force_init_pop:
+                    brute_forced_genes = get_brute_forced_genes()
+                    if brute_forced_genes is None:
+                        # no further solutions, quit full initial population generation
+                        return
+                    else:
+                        new_individual = [brute_forced_genes, '']
+                        return
+
                 return
 
     # individual is new, add to history
@@ -827,19 +858,22 @@ def get_random_individual(rec_depth=0):
     return new_individual
 
 
-def generate_initial_population(number_of_initial_individuals, original_individual):
+def generate_initial_population(number_of_initial_individuals, ref_prot):
     """
     Generate the initial population with random and new individuals.
     :param number_of_initial_individuals: The number ( > 0) of total individuals in the generated population.
-    :param original_individual: An individual with the initial amino acids of interest. The original
+    :param ref_prot: An individual with the initial amino acids of interest. The reference protein.
     individual is added as first one to the new population.
     :return: A new population. A population is a list of individuals.
     """
-    # initialize population with original individual
-    new_population = [original_individual]
-    total_history.append(original_individual)
+    # initialize population with reference protein and included mutants
+    new_population = [ref_prot]
+    for item in include_mutants:
+        new_population.append(item)
+    for item in new_population:
+        total_history.append(item)
     # generate new individuals with genes only, without scoring yet
-    for n in range(number_of_initial_individuals - 1):
+    for n in range(number_of_initial_individuals - len(new_population)):
         # generate new individual
         new_individual = get_random_individual()
         if new_individual is not None:
@@ -1296,7 +1330,7 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     run_info_file_content += "\n\nEvoDock Version: " + VERSION + "\n"
     # # reference protein AAs
     run_info_file_content += "\n\n\nReference Protein amino acids:\n"
-    for aa in original:
+    for aa in reference_protein:
         run_info_file_content += str(aa) + "\n"
     # # Initial Settings File - Content
     run_info_file_content += "\n\nInitial Settings File - Content:\n"
@@ -1446,8 +1480,8 @@ def terminate_by_time():
         return False
     # TODO check time format and test
     # if (datetime.datetime.now() - start_time) > int(terminate_time):
-        # print("EvoDock: Termination caused by specified runtime.")
-        # return True
+    # print("EvoDock: Termination caused by specified runtime.")
+    # return True
 
     return False
 
@@ -1589,7 +1623,7 @@ if look_up_scores:
 population = []
 if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     print("Generate initial Population...")
-    population = generate_initial_population(start_population_size, original)
+    population = generate_initial_population(start_population_size, reference_protein)
     # create input lists for saving function
     best_scores = [population[0][1]]
     average_scores = [population[0][1]]
@@ -1627,7 +1661,7 @@ elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
 elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:
     # create population and save initial population
     print("Generate initial Population...")
-    population = generate_initial_population(start_population_size, original)
+    population = generate_initial_population(start_population_size, reference_protein)
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 
 # endregion

@@ -47,8 +47,7 @@ def init(mutate, apply, score, fold):
         exit(
             "Error: Import of \"" + mutate_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
                                                       "This was the import of your specified MutagenesisModule. Make sure it is in the correct Folder. "
-                                                      "Check the documentation for more information.\nError Message: " + str(
-                e))
+                                                      "Check the documentation for more information.\nError Message: " + str(e))
     try:
         apply_mod = importlib.import_module(apply_mod_name)
     except ImportError as e:
@@ -56,8 +55,7 @@ def init(mutate, apply, score, fold):
         exit(
             "Error: Import of \"" + apply_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
                                                      "This was the import of your specified ApplicationModule. Make sure it is in the correct Folder. "
-                                                     "Check the documentation for more information.\nError Message: " + str(
-                e))
+                                                     "Check the documentation for more information.\nError Message: " + str(e))
     try:
         score_mod = importlib.import_module(score_mod_name)
     except ImportError as e:
@@ -65,17 +63,18 @@ def init(mutate, apply, score, fold):
         exit(
             "Error: Import of \"" + score_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
                                                      "This was the import of your specified EvaluationModule. Make sure it is in the correct Folder. "
-                                                     "Check the documentation for more information.\nError Message: " + str(
-                e))
+                                                     "Check the documentation for more information.\nError Message: " + str(e))
     try:
         fold_mod = importlib.import_module(fold_mod_name)
     except ImportError as e:
         fold_mod = None
         exit(
-            "Error: Import of \"" + fold_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+            "Error: Import of \"" + fold_mod_name + "\" failed. "
                                                     "This was the import of your specified FoldingModule. Make sure it is in the correct Folder. "
-                                                    "Check the documentation for more information.\nError Message: " + str(
-                e))
+                                                    "Check the documentation for more information.\nError Message: " + str(e))
+    except ValueError as e:
+        # no fold module specified, proceed with fold_mod set to None
+        fold_mod = None
     return
 
 
