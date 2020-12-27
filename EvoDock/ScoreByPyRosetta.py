@@ -17,7 +17,7 @@ try:
     from pyrosetta.rosetta.numeric import xyzVector_double_t
 
 except ImportError as e:
-    exit("ScoreOnPyRosetta: ImportError: " + str(e))
+    exit("ScoreByPyRosetta: ImportError: " + str(e))
 
 init()
 
@@ -49,7 +49,7 @@ def validate_data(protein_path, out_path):
     :return: True, all checks are valid.
     """
 
-    print("ScoreOnPyRosetta: Inputs are validated!")
+    print("ScoreByPyRosetta: Inputs are validated!")
     return
 
 
@@ -64,19 +64,19 @@ def parameter_handling(params):
         try:
             weight_mutagenesis = float(params[1])
         except IndexError:
-            exit("ERROR in ScoreOnPyRosetta: Argument(s) missing! " + str(params))
+            exit("ERROR in ScoreByPyRosetta: Argument(s) missing! " + str(params))
         except ValueError:
-            exit("ERROR in ScoreOnPyRosetta: Weight value has to be float! " + str(params))
+            exit("ERROR in ScoreByPyRosetta: Weight value has to be float! " + str(params))
     elif params[0] == WEIGHT_APPLICATION:
         global weight_application
         try:
             weight_application = float(params[1])
         except IndexError:
-            exit("ERROR in ScoreOnPyRosetta: Argument(s) missing! " + str(params))
+            exit("ERROR in ScoreByPyRosetta: Argument(s) missing! " + str(params))
         except ValueError:
-            exit("ERROR in ScoreOnPyRosetta: Weight value has to be float! " + str(params))
+            exit("ERROR in ScoreByPyRosetta: Weight value has to be float! " + str(params))
     else:
-        exit("ERROR in ScoreOnPyRosetta: unknown argument(s): " + str(params))
+        exit("ERROR in ScoreByPyRosetta: unknown argument(s): " + str(params))
 
 
 def calculate_fitness(specific_results, score_function_mutagenesis, score_function_application):
