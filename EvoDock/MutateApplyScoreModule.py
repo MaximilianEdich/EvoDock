@@ -6,6 +6,9 @@ protein. Next the protein will be used in a task specific application and get a 
 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
+
+VERSION = "0.20_12"
+
 # region Imports and fixed vars
 import importlib
 
@@ -41,30 +44,38 @@ def init(mutate, apply, score, fold):
         mutate_mod = importlib.import_module(mutate_mod_name)
     except ImportError as e:
         mutate_mod = None
-        exit("Error: Import of \"" + mutate_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
-             "This was the import of your specified MutagenesisModule. Make sure it is in the correct Folder. "
-             "Check the documentation for more information.\nError Message: " + str(e))
+        exit(
+            "Error: Import of \"" + mutate_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+                                                      "This was the import of your specified MutagenesisModule. Make sure it is in the correct Folder. "
+                                                      "Check the documentation for more information.\nError Message: " + str(
+                e))
     try:
         apply_mod = importlib.import_module(apply_mod_name)
     except ImportError as e:
         apply_mod = None
-        exit("Error: Import of \"" + apply_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
-             "This was the import of your specified ApplicationModule. Make sure it is in the correct Folder. "
-             "Check the documentation for more information.\nError Message: " + str(e))
+        exit(
+            "Error: Import of \"" + apply_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+                                                     "This was the import of your specified ApplicationModule. Make sure it is in the correct Folder. "
+                                                     "Check the documentation for more information.\nError Message: " + str(
+                e))
     try:
         score_mod = importlib.import_module(score_mod_name)
     except ImportError as e:
         score_mod = None
-        exit("Error: Import of \"" + score_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
-             "This was the import of your specified EvaluationModule. Make sure it is in the correct Folder. "
-             "Check the documentation for more information.\nError Message: " + str(e))
+        exit(
+            "Error: Import of \"" + score_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+                                                     "This was the import of your specified EvaluationModule. Make sure it is in the correct Folder. "
+                                                     "Check the documentation for more information.\nError Message: " + str(
+                e))
     try:
         fold_mod = importlib.import_module(fold_mod_name)
     except ImportError as e:
         fold_mod = None
-        exit("Error: Import of \"" + fold_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
-             "This was the import of your specified FoldingModule. Make sure it is in the correct Folder. "
-             "Check the documentation for more information.\nError Message: " + str(e))
+        exit(
+            "Error: Import of \"" + fold_mod_name + "\" failed. Make sure to provide this module, since it is essential. "
+                                                    "This was the import of your specified FoldingModule. Make sure it is in the correct Folder. "
+                                                    "Check the documentation for more information.\nError Message: " + str(
+                e))
     return
 
 
@@ -86,10 +97,11 @@ def check_imported_modules():
         score_mod.is_scoring_module()
     except AttributeError:
         exit("Error, specified scoring module is not a scoring module!")
-    try:
-        fold_mod.is_folding_module()
-    except AttributeError:
-        exit("Error, specified folding module is not a folding module!")
+    if fold_mod is not None:
+        try:
+            fold_mod.is_folding_module()
+        except AttributeError:
+            exit("Error, specified folding module is not a folding module!")
     return True
 
 
@@ -97,6 +109,7 @@ def validate_module_data(protein_path, out_path, skip_application):
     """
     Passes the validation task to the single modules and checks, if all settings and inputs for each module
     are validated.
+    :param skip_application: If True, aplication module wont be valided.
     :param protein_path: Path to the input PDB file, which represents the wild type protein.
     :param out_path: Path to the output folder of this run.
     :return: True, if all modules have validated their settings and input.
@@ -105,9 +118,15 @@ def validate_module_data(protein_path, out_path, skip_application):
     if not skip_application:
         apply_mod.validate_data(protein_path, out_path)
     score_mod.validate_data(protein_path, out_path)
-    fold_mod.validate_data(protein_path, out_path)
+    if fold_mod is not None:
+        fold_mod.validate_data(protein_path, out_path)
     print("All modules validated!\n")
     return True
+
+
+def check_compatibility_mutate_apply():
+    mut_out = mutate_mod.get_compatibility_out()
+    return apply_mod.get_compatibility_check(mut_out)
 
 
 def preparation_result_path(protein_path, out_path):
@@ -135,6 +154,11 @@ def prepare_tool(protein_path, out_path, skip_application):
 
 
 def handle_module_params(params):
+    """
+    Pass the module specific parameters from initial settings file to the modules.
+    :param params: String with parameter.
+    :return: Specific string values from the modules in a list.
+    """
     if params[0] == MODULE_PARAM_MUTATE:
         return mutate_mod.parameter_handling(params[1:])
     if params[0] == MODULE_PARAM_APPLY:
@@ -142,17 +166,27 @@ def handle_module_params(params):
     if params[0] == MODULE_PARAM_SCORE:
         return score_mod.parameter_handling(params[1:])
     if params[0] == MODULE_PARAM_FOLD:
-        return fold_mod.parameter_handling(params[1:])
-
+        if fold_mod is not None:
+            return fold_mod.parameter_handling(params[1:])
+        else:
+            print("WARNING in MutateApplyScoreModule: Received Fold-parameters, but has not folding module.")
+    exit("ERROR in MutateApplyScoreModule, handle_module_params: unknown parameter identifier: " + params)
     return
 
 
-def get_initial_amino_acids(protein_path, amino_acid_paths):
+def get_ref_protein_amino_acids(protein_path, amino_acid_paths):
+    """
+    Get AAs from the reference protein corresponding to the specified res-ids.
+    :param protein_path:
+    :param amino_acid_paths:
+    :return:
+    """
     return mutate_mod.get_initial_amino_acids(protein_path, amino_acid_paths)
 
 
 def get_reformatted_amino_acids(protein_path, amino_acid_paths):
     return mutate_mod.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+
 
 # endregion
 
@@ -197,7 +231,7 @@ def generate_application_input(mutations, mutant_out_path, protein_path, amino_a
         if results is not None:
             return results
 
-    if fold_instead_mutate:
+    if fold_instead_mutate and fold_mod is not None:
         return fold_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
     else:
         return mutate_mod.generate_application_input(protein_path, mutant_out_path, amino_acid_paths, mutations)
@@ -266,6 +300,10 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     :return: The calculated score as the individuals fitness, that was written into the score value of the individual.
     """
 
+    # catch error
+    if fold_instead_mutate and fold_mod is None:
+        fold_instead_mutate = False
+
     # define output-folder for this mutant
     mutant_out_path = mas.out_path + "/Mutant"
     for x in target_individual[0]:
@@ -300,7 +338,7 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     # perform application
     if not mas.skip_application:
         specific_results[1] = run_application(mutant_out_path, specific_results[0], mas.use_specific_mutate_out,
-                                          mas.use_existent_mutate_out_path)
+                                              mas.use_existent_mutate_out_path)
 
     # evaluate all scores for final fitness
     evaluation_results = calculate_fitness_score(specific_results)

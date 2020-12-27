@@ -1,3 +1,6 @@
+
+VERSION = "0.20_12_alpha"
+
 try:
     from pyrosetta import toolbox
     from pyrosetta import init

@@ -4,6 +4,9 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
+VERSION = "0.20_12"
+
+
 # region Imports
 print("Import core modules...")
 try:
@@ -92,12 +95,13 @@ INITIAL_POPULATION_CREATE_MODE = "-init-pop-create-mode"
 CREATE_VIA_FOLD = "fold"
 CREATE_VIA_MUTATE = "mutate"
 
-# protein specifications
+# protein specifications and mutation settings
 PROTEIN_PATH = "-prot-path"
 RES_ID = "-res-id"
 SUBSTITUTIONS = "-substitutions"
 SYMMETRY = "-symmetry"
 LOOK_UP_TABLE = "-look-up-table-path"
+SUBST_MATRIX = "-substitution-matrix"
 
 # optional
 CPU_CORE_NUMBER = "-cpu"
@@ -216,6 +220,8 @@ if args.documentation:
 
     print("\nRoutine file commands:")
     print("TODO")
+    # TODO load modules and print doc
+
     exit()
 
 # endregion
@@ -296,7 +302,7 @@ def error_msg_create_init_pop_options():
     Then it exits.
     """
     print(CREATE_VIA_MUTATE + ":  Each pdb of a random mutant of the initial population is created via mutagenesis.")
-    print(CREATE_VIA_FOLD + ":   Each pdb of a random mutant of the initial population is created via ab initio "
+    print(CREATE_VIA_FOLD + ":   Each pdb of a random mutant of the initial population is created via folding."
                             "folding.")
     print("See the documentation for more details.")
     exit()
@@ -561,10 +567,8 @@ if len(amino_acid_paths) != len(allowed_mutations):
 if initial_population_run_mode == "":
     print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION + "\"! Use these options:")
     error_msg_initial_population_options()
-if initial_population_create_mode == "" and initial_population_run_mode != INITIAL_POPULATION_LOAD:
-    print("Error in initial settings file: You have to specify \"" + INITIAL_POPULATION_CREATE_MODE +
-          "\" Use: " + INITIAL_POPULATION_CREATE_MODE + " <mode>, where <mode> is one of these:")
-    error_msg_create_init_pop_options()
+if initial_population_create_mode == "":
+    initial_population_create_mode = CREATE_VIA_MUTATE
 if target_score is None:
     exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
 if protein_path != "":
@@ -584,9 +588,10 @@ if module_name_apply == "":
         "Error in initial settings file: You have to specify the application-module via \"" + MODULE_NAME_APPLY + "\"!")
 if module_name_score == "":
     exit("Error in initial settings file: You have to specify the scoring-module via \"" + MODULE_NAME_SCORE + "\"!")
-if module_name_fold == "":
-    exit("Error in initial settings file: You have to specify the folding-module via \"" + MODULE_NAME_FOLD + "\"!")
-if use_specific_mutate_out is None:
+if module_name_fold == "" and initial_population_create_mode == CREATE_VIA_FOLD:
+    exit("Error in initial settings file: You have to specify the folding-module "
+         "via \"" + MODULE_NAME_FOLD + "\" or create the initial population via mutagenesis instead of folding!")
+if not(use_specific_mutate_out == True or use_specific_mutate_out == False or use_specific_mutate_out == None):
     exit("Error in initial settings file: You have to specify which mutagenesis output is used via"
          " \"" + USE_SPECIFIC_MUTATE_OUT + " <b>\", with <b> = 'TRUE' or 'FALSE'!")
 
@@ -640,7 +645,9 @@ except PermissionError as e:
 # region MASM and amino acid paths set up
 # init MASM with modules
 print("initialize MutateApplyScoreModule: import specified modules...")
+# import modules
 MutateApplyScoreModule.init(module_name_mutate, module_name_apply, module_name_score, module_name_fold)
+# check if each module is assigned correctly
 MutateApplyScoreModule.check_imported_modules()
 
 # apply module parameters
@@ -648,19 +655,23 @@ print("\nset up specified modules with specific module parameters...")
 for module_param_list in module_params:
     returned_value = MutateApplyScoreModule.handle_module_params(module_param_list)
     if returned_value is not None:
-        # TODO maybe work with return values
+        # TODO maybe work with return values, catch warnings
         pass
 
 # validate and prepare tools and maybe update protein path
 MutateApplyScoreModule.validate_module_data(protein_path, out_path, skip_application)
+if use_specific_mutate_out is None or use_specific_mutate_out == True:
+    use_specific_mutate_out = MutateApplyScoreModule.check_compatibility_mutate_apply()
 MutateApplyScoreModule.prepare_tool(protein_path, out_path, skip_application)
 protein_path = MutateApplyScoreModule.preparation_result_path(protein_path, out_path)
 print(protein_path)
 
+# reformat res-ids if required
 if res_id_is_pdb_code:
     amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
-original[0] = MutateApplyScoreModule.get_initial_amino_acids(protein_path, amino_acid_paths)
-
+# get AAs of reference protein
+original[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
+# quick reference for several non-changing params
 mds.set_values(original, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
                use_existent_mutate_out_path, skip_application)
 
@@ -1281,6 +1292,8 @@ def save_output(input_population, best_scores_over_time, average_scores_over_tim
     current_time = datetime.datetime.now()
     run_info_file_content = "Run information of run " + run_string + "\n"
     run_info_file_content += "Run time: " + str(current_time - start_time) + "\n"
+    # # version
+    run_info_file_content += "\n\nEvoDock Version: " + VERSION + "\n"
     # # reference protein AAs
     run_info_file_content += "\n\n\nReference Protein amino acids:\n"
     for aa in original:
@@ -1433,8 +1446,9 @@ def terminate_by_time():
         return False
     # TODO check time format and test
     # if (datetime.datetime.now() - start_time) > int(terminate_time):
-    #    print("EvoDock: Termination caused by specified runtime.")
-    #    return True
+        # print("EvoDock: Termination caused by specified runtime.")
+        # return True
+
     return False
 
 

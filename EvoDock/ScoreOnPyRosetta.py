@@ -1,3 +1,8 @@
+
+
+VERSION = "0.20_12"
+
+
 # region Imports and init
 try:
     from pyrosetta import init

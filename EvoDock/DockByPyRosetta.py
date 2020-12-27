@@ -1,3 +1,8 @@
+
+
+VERSION = "0.20_12"
+
+
 # region Imports and init
 try:
     from pyrosetta import init, pose_from_file, get_fa_scorefxn, create_score_function
@@ -289,3 +294,18 @@ def perform_application_with_pdb(pdb_input, out_path):
             exit("ERROR in DockByPyRosetta: Cannot load pose from PDB input, check if output is generated.")
 
     return perform_application(pose_input, out_path)
+
+
+def get_compatibility_check(input_obj):
+    """
+    Check, if the given input is a pose and therefore this module is compatible with pose input/output.
+    :param input_obj: Input, a pose is expected.
+    :return: True, if input is expected type, otherwise False.
+    """
+    new_pose = Pose()
+    try:
+        new_pose.assign(input_obj)
+    except ValueError:
+        return False
+
+    return True

@@ -13,6 +13,7 @@ EvoDock/results*/
 EvoDock/input_*/
 EvoDock/Exp_input/*
 EvoDock/is_exp*/*
+EvoDock/is_pre/*
 EvoDock/mutate_*/*
 EvoDock/commands.txt
 EvoDock/PyMOL*/*
@@ -154,3 +155,4 @@ EvoDock/c3.txt
 EvoDock/c_final_3.txt
 *.txt
 EvoDock/test_out/results1/ResultsReader_out_table.xlsx
+EvoDock/.idea/workspace.xml

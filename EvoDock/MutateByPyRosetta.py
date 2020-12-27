@@ -1,3 +1,8 @@
+
+
+VERSION = "0.20_12"
+
+
 # region Imports and init
 try:
     from pyrosetta import init, pose_from_file, get_fa_scorefxn, create_score_function, standard_packer_task
@@ -45,6 +50,7 @@ SET_KT = "-set-kT"
 SET_N_MOVES = "-set-n-moves"
 ROTAMER_MOVER = "-rotamer-mover"
 BACKBONE_MOVER = "-backbone-mover"
+BACKBONE_MOVER_CHI = "-backbone-mover-modify-chi"
 
 # rotamer movers
 ROTAMER_MOVERS = []
@@ -74,6 +80,7 @@ number_of_backbone_moves = 1
 make_poses = 1
 rotamer_mover_id = MOVER_ID_ROTAMER_TRIALS_MIN_MOVER
 backbone_mover_id = NONE
+backbone_mover_chi = True
 kT = 1.0
 n_moves = 5
 tolerance = 0.01
@@ -104,6 +111,12 @@ def validate_data(protein_path, out_path):
     print("MutateByPyRosetta: Pose is validated!")
     print("MutateByPyRosetta: Inputs are validated!")
     return True
+
+
+def print_documentation():
+    # TODO
+    return
+
 
 
 def set_score_function(path_name):
@@ -197,7 +210,16 @@ def parameter_handling(params):
     :return: None.
     """
     # TODO explicit error with how to use it right
-    if params[0] == SET_SCORE_FUNCTION:
+    if params[0] == BACKBONE_MOVER_CHI:
+        try:
+            global backbone_mover_chi
+            if params[1] == TRUE:
+                backbone_mover_chi = True
+            else:
+                backbone_mover_chi = False
+        except IndexError:
+            exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == SET_SCORE_FUNCTION:
         try:
             set_score_function(params[1])
         except IndexError:
@@ -445,7 +467,7 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
     move_map = MoveMap()
     for p in pack_list:
         move_map.set_bb(p, True)
-        if True:
+        if backbone_mover_chi:
             move_map.set_chi(p, True)
 
     print(move_map)
@@ -526,6 +548,7 @@ def get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path):
     :param use_existent_mutate_out_path:
     :return:
     """
+    # extract mutant name (AAs combination) from outpath
     path_split = str(mutant_out_path).split('/')
     prefix = path_split[len(path_split) - 1]
     paths = []
@@ -555,3 +578,12 @@ def get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path):
             load_pose.dump_pdb(mutant_out_path + str(suffix) + ".pdb")
 
     return mutagenesis_output
+
+
+def get_compatibility_out():
+    """
+    Get object which is included in module specific output, in this case a pose.
+    :return: A PyRosetta Pose Object.
+    """
+    pose = Pose()
+    return pose
