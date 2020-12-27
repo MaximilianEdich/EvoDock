@@ -5,13 +5,17 @@ parser.add_argument("-o", "--out_name", type=str, required=True,
                     help="Outputpath and name, only a .txt is added.")
 args = parser.parse_args()
 
-start_stuffix = 2
-start_repeat_until = 26
+start_stuffix = 1
+start_repeat_until = 5
 replace = "#"
 
 lines = []
-lines.append("python3 ResultsReader.py -r export3/export3/mutate_1ogx/results#/ -i 5\n"
-             "python3 ResultsReader.py -r export3/export3/mutate_1rsz/results#/ -i 6"
+lines.append("python3 EvoDock.py -s is_pre/is_1ANE_#.txt -r routine.txt -o is_pre/1ANE/results#/\n"
+             "python3 EvoDock.py -s is_pre/is_1ANE_#.txt -r routine.txt -o is_pre/1ANE/results#/\n"
+             "python3 EvoDock.py -s is_pre/is_1ANE_#.txt -r routine.txt -o is_pre/1ANE/results#/\n"
+             "python3 EvoDock.py -s is_pre/is_1ANE_#.txt -r routine.txt -o is_pre/1ANE/results#/\n"
+             "python3 EvoDock.py -s is_pre/is_1ANE_#.txt -r routine.txt -o is_pre/1ANE/results#/\n"
+             "python3 ResultsReader.py -r is_pre/1ANE/results#/ -i 0"
              )
 
 commands = ""

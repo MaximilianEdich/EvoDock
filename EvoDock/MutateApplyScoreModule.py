@@ -7,7 +7,7 @@ protein. Next the protein will be used in a task specific application and get a 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.20_12"
+VERSION = "0.20_12_27"
 
 # region Imports and fixed vars
 import importlib

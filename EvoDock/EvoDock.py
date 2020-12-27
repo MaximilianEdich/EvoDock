@@ -4,7 +4,7 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.20_12"
+VERSION = "0.20_12_27"
 
 # region Imports
 print("Import core modules...")
@@ -583,10 +583,11 @@ if module_name_score == "":
 if module_name_fold == "" and initial_population_create_mode == CREATE_VIA_FOLD:
     exit("Error in initial settings file: You have to specify the folding-module "
          "via \"" + MODULE_NAME_FOLD + "\" or create the initial population via mutagenesis instead of folding!")
-if not (use_specific_mutate_out == True or use_specific_mutate_out == False or use_specific_mutate_out == None):
+if not (use_specific_mutate_out == True or use_specific_mutate_out == False or use_specific_mutate_out is None):
     exit("Error in initial settings file: You have to specify which mutagenesis output is used via"
          " \"" + USE_SPECIFIC_MUTATE_OUT + " <b>\", with <b> = 'TRUE' or 'FALSE'!")
-if include_mutants != []:
+# if list "include_mutants" contains elements
+if include_mutants:
     # check if all included mutants have same number of mutable AAs as reference protein
     for item in include_mutants:
         if len(item) != number_of_mutable_aa:
@@ -792,8 +793,11 @@ def get_random_genes():
 
 
 def get_brute_forced_genes():
-
-    # modifiy genes list and check total history
+    """
+    Create all possible combinations of gene sets and test them on total history.
+    :return: A new unique set if one was found, otherwise None.
+    """
+    # check total history on all combinations
     input_list = []
     for aa in range(number_of_mutable_aa):
         input_list.append(allowed_mutations[aa])
@@ -831,8 +835,8 @@ def get_random_individual(rec_depth=0):
 
     new_individual = [get_random_genes(), '']
     # check if the new individual appears in history
-    for individual in total_history:
-        if individual[0] == new_individual[0]:
+    for history_entry in total_history:
+        if history_entry[0] == new_individual[0]:
             # individual not new, repeat with new random individual
             try:
                 return get_random_individual(rec_depth + 1)
@@ -848,7 +852,7 @@ def get_random_individual(rec_depth=0):
                         return
                     else:
                         new_individual = [brute_forced_genes, '']
-                        return
+                        return new_individual
 
                 return
 
@@ -879,8 +883,6 @@ def generate_initial_population(number_of_initial_individuals, ref_prot):
         if new_individual is not None:
             # add to population, if new individual is available
             new_population.append(new_individual)
-        elif BREAK_LOOP_AFTER_MAX_REC_DEPTH:
-            break
 
     # calculate scores and return result
     return score_on_multi_core(new_population)
