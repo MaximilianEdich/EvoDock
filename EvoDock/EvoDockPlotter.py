@@ -35,13 +35,13 @@ def test_2D():
     results = []
     min = -1
     max = -1
-    file = open("results_exp_final/exp5_2D/1ANE_2D.txt", 'r')
+    file = open("results_exp_final/exp5_2D/1NJA_2D_new.txt", 'r')
     lines = file.readlines()
     file.close()
     for line in lines[1:]:
         load_individual = [[], 0]
         content = line.strip().split(';')
-        load_individual[1] = float(content[1])
+        load_individual[1] = float(content[1]) ** 1
         load_individual[0] = ast.literal_eval(content[0])
         results.append(load_individual)
         if min == -1 or load_individual[1] < min:

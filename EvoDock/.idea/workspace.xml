@@ -41,7 +41,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.MatrixReady">
+  <component name="RunManager" selected="Python.EvoDockPlotter">
     <configuration name="EvoDock" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="EvoDock" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -156,8 +156,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.MatrixReady" />
         <item itemvalue="Python.EvoDockPlotter" />
+        <item itemvalue="Python.MatrixReady" />
         <item itemvalue="Python.EvoDock" />
         <item itemvalue="Python.Workshop2test" />
         <item itemvalue="Python.MathTest" />

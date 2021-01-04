@@ -1,6 +1,5 @@
 
-
-VERSION = "0.20_12_27"
+VERSION = "0.21_01_03"
 
 
 # region Imports and init
@@ -41,6 +40,8 @@ EXTRA_RELAX = "-extra-relax"
 RELAX_FAST = "FAST-RELAX"
 RELAX_CLASSIC = "CLASSIC-RELAX"
 RELAX_BOTH = "RELAX-BOTH"
+RELAX_MAX_ITER = "-relax-max-iter"
+
 SAVE_PDB = "-save-pdb"
 PACK_RADIUS = "-pack-radius"
 ROTAMER_MOVES_NUMBER = "-rotamer-moves-number"
@@ -72,6 +73,7 @@ BACKBONE_MOVERS.append(MOVER_ID_MIN_MOVER)
 score_function = get_fa_scorefxn()
 
 relax_mode = None
+relax_max_iter = 0
 prep_only = False
 save_pdb = False
 pack_radius = 8
@@ -115,8 +117,9 @@ def validate_data(protein_path, out_path):
 
 def print_documentation():
     # TODO
+    print("MutateByPyRosetta")
+    print(VERSION)
     return
-
 
 
 def set_score_function(path_name):
@@ -157,12 +160,12 @@ def set_score_function(path_name):
             key_value = line.split(' ')
             try:
                 score_function.set_weight(getattr(ScoreType, key_value[0]), float(key_value[1]))
-            except AttributeError as e:
+            except AttributeError as error:
                 print("ERROR in MutateByPyRosetta: Unknown ScoreType.")
-                exit(e)
-            except ValueError as e:
+                exit(error)
+            except ValueError as error:
                 print("ERROR in MutateByPyRosetta: Illegal value.")
-                exit(e)
+                exit(error)
     else:
         # arg1 is score function name, try to load respective score function
         try:
@@ -184,7 +187,7 @@ def get_initial_amino_acids(protein_path, amino_acid_paths):
     Get the single-letter amino acid code from the residues of interest.
     :param protein_path: path to a PDB.
     :param amino_acid_paths: list of residue ids.
-    :return: list of single-letter aa codes, respectivly to the input list amino_amino_acid_paths.
+    :return: list of single-letter aa codes, respectively to the input list amino_amino_acid_paths.
     """
     pose = pose_from_file(protein_path)
     result = []
@@ -195,7 +198,6 @@ def get_initial_amino_acids(protein_path, amino_acid_paths):
 
 def get_reformatted_amino_acids(protein_path, amino_acid_paths):
     pose = pose_from_file(protein_path)
-    new_list = []
     new_list = []
     for entry in amino_acid_paths:
         new_list.append(pose.pdb_info().pdb2pose(entry[0], int(entry[1])))
@@ -255,6 +257,15 @@ def parameter_handling(params):
                 exit("ERROR in MutateByPyRosetta: unknown argument(s): " + str(params))
         except IndexError:
             exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
+    elif params[0] == RELAX_MAX_ITER:
+        global relax_max_iter
+        try:
+            number = int(params[1])
+            if number < 1:
+                exit("ERROR in MutateByPyRosetta: argument must be int >= 1: " + str(params))
+            relax_max_iter = number
+        except ValueError:
+            exit("ERROR in MutateByPyRosetta: wrong value type, int >= 1 expected: " + str(params))
     elif params[0] == SAVE_PDB:
         global save_pdb
         try:
@@ -271,7 +282,7 @@ def parameter_handling(params):
                 global pack_radius
                 pack_radius = radius
         except ValueError:
-            exit("ERROR in MutateByPyRosetta: wrong value type of argument(s): " + str(params))
+            exit("ERROR in MutateByPyRosetta: wrong value type, float expected: " + str(params))
         except IndexError:
             exit("ERROR in MutateByPyRosetta: argument(s) missing at: " + str(params))
     elif params[0] == ROTAMER_MOVES_NUMBER:
@@ -361,7 +372,7 @@ def parameter_handling(params):
 
 
 def preparation_result_path(protein_path, out_path):
-    if not relax_mode is None:
+    if relax_mode is not None:
         prot_split = protein_path.split('/')
         prot_name = prot_split[len(prot_split) - 1]
         return out_path + "/" + prot_name[:(len(prot_name) - 3)] + "relaxed.pdb"
@@ -390,6 +401,8 @@ def prepare_files_for_tool(protein_path, out_path):
         if relax_mode == RELAX_FAST or relax_mode == RELAX_BOTH:
             f_relax = FastRelax()
             f_relax.set_scorefxn(score_fxn)
+            if relax_max_iter > 0:
+                f_relax.max_iter(relax_max_iter)
             f_relax.apply(pose)
             relax_out_path_name = preparation_result_path(protein_path, out_path)
             pose.dump_pdb(relax_out_path_name)
@@ -399,6 +412,8 @@ def prepare_files_for_tool(protein_path, out_path):
         if relax_mode == RELAX_CLASSIC or relax_mode == RELAX_BOTH:
             c_relax = ClassicRelax()
             c_relax.set_scorefxn(score_fxn)
+            if relax_max_iter > 0:
+                c_relax.max_iter(relax_max_iter)
             c_relax.apply(test_pose)
             relax_out_path_name = preparation_result_path(protein_path, out_path)
             pose.dump_pdb(relax_out_path_name)
@@ -423,7 +438,6 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
     score_fxn = score_function
 
     # load pose
-    is_original = True
     load_pose = pose_from_file(protein_path)
 
     # create copies
@@ -437,7 +451,6 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
     index = 0
     for mut in mutations:
         if mut != '':
-            is_original = False
             for pose in poses:
                 mutate_residue(pose, int(amino_acid_paths[index]), mut)
         index += 1
@@ -521,15 +534,19 @@ def generate_application_input(protein_path, out_path, amino_acid_paths, mutatio
                 rotamer_mover.apply(pose)
                 print("Score " + str(mutations) + str(suffix) + " : " + str(score_fxn(pose)))
 
-        if not extra_relax is None:
+        if extra_relax is not None:
             print("\nrelax structure...\n")
             if extra_relax == RELAX_FAST:
                 f_relax = FastRelax()
                 f_relax.set_scorefxn(score_fxn)
+                if relax_max_iter > 0:
+                    f_relax.max_iter(relax_max_iter)
                 f_relax.apply(pose)
             if extra_relax == RELAX_CLASSIC:
                 c_relax = ClassicRelax()
                 c_relax.set_scorefxn(score_fxn)
+                if relax_max_iter > 0:
+                    c_relax.max_iter(relax_max_iter)
                 c_relax.apply(pose)
 
         # save pdb
@@ -548,7 +565,7 @@ def get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path):
     :param use_existent_mutate_out_path:
     :return:
     """
-    # extract mutant name (AAs combination) from outpath
+    # extract mutant name (AAs combination) from out_path
     path_split = str(mutant_out_path).split('/')
     prefix = path_split[len(path_split) - 1]
     paths = []
@@ -587,3 +604,14 @@ def get_compatibility_out():
     """
     pose = Pose()
     return pose
+
+
+def save_pdb_file(pose, out_path):
+    """
+    Save a given pose as pdb. Used to save poses later after evaluation.
+    :param pose: Input PyRosetta pose object.
+    :param out_path: Outpath.
+    :return: None.
+    """
+    pose.dump_pdb(out_path + str(1) + ".pdb")
+    return

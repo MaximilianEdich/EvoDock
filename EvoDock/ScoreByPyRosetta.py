@@ -1,6 +1,6 @@
 
 
-VERSION = "0.20_12_27"
+VERSION = "0.21_01_03"
 
 
 # region Imports and init
@@ -92,12 +92,25 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
     if mutagenesis_results == []:
         return 0
 
+    start_from = StartFrom()
+    start_from.chain('X')
+    vec = xyzVector_double_t(1000, 1000, 1000)
+    start_from.add_coords(vec)
+
+    # if application was skipped
     if application_results == [[]] or application_results == []:
         lowest_energy = 0
         lowest_energy_pose_index = 0
         outer_pose = 0
         for pose in mutagenesis_results:
-            energy = score_function_mutagenesis(pose)
+            energy_complex = score_function_application(pose)
+            pose_seperated = Pose()
+            pose_seperated.assign(pose)
+            start_from.apply(pose_seperated)
+            energy_separated = score_function_application(pose_seperated)
+            energy = energy_complex - energy_separated
+
+            print(energy)
             if energy < lowest_energy:
                 lowest_energy = energy
                 lowest_energy_pose_index = outer_pose
@@ -105,7 +118,8 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
         print("lowest energy pose: " + str(lowest_energy_pose_index) + " with energy:")
         print(lowest_energy)
         score_mutate = score_function_mutagenesis(mutagenesis_results[lowest_energy_pose_index]) * -1
-        score = (score_mutate * weight_mutagenesis)
+        score_apply = lowest_energy * -1
+        score = (score_mutate * weight_mutagenesis) + (score_apply * weight_application)
         print("score final: " + str(score))
 
         results = [score, mutagenesis_results[lowest_energy_pose_index], None]
@@ -119,11 +133,6 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
     svec.append('A')
     svec.append('X')
     inter_face.chains(svec)'''
-
-    start_from = StartFrom()
-    start_from.chain('X')
-    vec = xyzVector_double_t(1000, 1000, 1000)
-    start_from.add_coords(vec)
 
     lowest_energy = 0
     lowest_energy_pose_index = 0

@@ -4,7 +4,7 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.20_12_27"
+VERSION = "0.21_01_03"
 
 # region Imports
 print("Import core modules...")
@@ -210,7 +210,7 @@ initial_population_create_mode = ""
 start_population_size = 0
 load_population_path = ""
 
-reference_protein = [[], 0]
+reference_protein = [[], '']
 protein_path = ""
 amino_acid_paths = []
 allowed_mutations = []
@@ -224,6 +224,7 @@ module_name_fold = ""
 use_specific_mutate_out = None
 use_existent_mutate_out_path = None
 skip_application = False
+keep_improvements = True
 
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
@@ -672,7 +673,7 @@ if res_id_is_pdb_code:
 reference_protein[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
 # quick reference for several non-changing params
 mds.set_values(reference_protein, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-               use_existent_mutate_out_path, skip_application)
+               use_existent_mutate_out_path, skip_application, keep_improvements)
 
 # endregion
 
@@ -873,9 +874,11 @@ def generate_initial_population(number_of_initial_individuals, ref_prot):
     # initialize population with reference protein and included mutants
     new_population = [ref_prot]
     for item in include_mutants:
-        new_population.append(item)
+        new_population.append([item, ''])
     for item in new_population:
         total_history.append(item)
+    print("Population with reference protein and included mutants:")
+    print(new_population)
     # generate new individuals with genes only, without scoring yet
     for n in range(number_of_initial_individuals - len(new_population)):
         # generate new individual
@@ -1575,6 +1578,15 @@ def perform_routine(input_population):
                 selection_step += 1
                 save_output(input_population, best_scores_over_time, average_scores_over_time,
                             "-intermediate result- step " + str(selection_step))
+                # if improvements should be saved as pdb, check population for all improvements compared to ref protein
+                if keep_improvements:
+                    improvements = []
+                    ref_score = get_individuals_score_relative_to_targetScore(reference_protein)
+                    for indiv in input_population:
+                        if get_individuals_score_relative_to_targetScore(indiv) < ref_score:
+                            improvements.append(indiv)
+                    MutateApplyScoreModule.save_improvements(improvements, mds)
+
             elif split_command[0] == LOOP:
                 # set repeat number and point
                 loop_number = int(split_command[1]) - 1
@@ -1635,6 +1647,19 @@ if initial_population_run_mode == INITIAL_POPULATION_NEW_STOP:
     # save
     save_output(population, best_scores, average_scores, "initial population only")
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
+
+    # save improvements PDBs
+    print("new...")
+    if keep_improvements:
+        print("true")
+        improvements = []
+        ref_score = get_individuals_score_relative_to_targetScore(reference_protein)
+        for indiv in population:
+            if get_individuals_score_relative_to_targetScore(indiv) < ref_score:
+                improvements.append(indiv)
+        print(improvements)
+        MutateApplyScoreModule.save_improvements(improvements, mds)
+
     end_time = datetime.datetime.now()
     # exit
     print("Run time: " + str(end_time - start_time))

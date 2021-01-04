@@ -1,6 +1,6 @@
 
 
-VERSION = "0.20_12_27"
+VERSION = "0.21_01_03"
 
 
 # region Imports and init
@@ -309,3 +309,14 @@ def get_compatibility_check(input_obj):
         return False
 
     return True
+
+
+def save_pdb_file(pose, out_path):
+    """
+    Save a given pose as pdb. Used to save poses later after evaluation.
+    :param pose: Input PyRosetta pose object.
+    :param out_path: Outpath.
+    :return: None.
+    """
+    pose.dump_pdb(out_path + str(1) + ".pdb")
+    return

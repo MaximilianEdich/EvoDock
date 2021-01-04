@@ -7,7 +7,7 @@ protein. Next the protein will be used in a task specific application and get a 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.20_12_27"
+VERSION = "0.21_01_03"
 
 # region Imports and fixed vars
 import importlib
@@ -22,6 +22,7 @@ MODULE_PARAM_APPLY = "-module-param-apply"
 MODULE_PARAM_SCORE = "-module-param-score"
 MODULE_PARAM_FOLD = "-module-param-fold"
 
+poses = []
 
 # endregion
 
@@ -199,10 +200,11 @@ class MutateApplyScore:
         self.use_specific_mutate_out = True
         self.use_existent_mutate_out_path = None
         self.skip_application = False
+        self.keep_improvements = True
         return
 
     def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-                   use_existent_mutate_out_path, skip_application):
+                   use_existent_mutate_out_path, skip_application, keep_improvements):
         self.original_individual = original_individual
         self.out_path = out_path
         self.protein_path = protein_path
@@ -210,6 +212,7 @@ class MutateApplyScore:
         self.use_specific_mutate_out = use_specific_mutate_out
         self.use_existent_mutate_out_path = use_existent_mutate_out_path
         self.skip_application = skip_application
+        self.keep_improvements = keep_improvements
         return
 
 
@@ -345,6 +348,46 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     mut_pose = evaluation_results[1]
     apply_pose = evaluation_results[2]
 
+    # if pose is potentially saved later, keep it
+    save_bests = True
+    if save_bests:
+        if mut_pose is not None:
+            mutate_mod.save_pdb_file(mut_pose, mutant_out_path)
+        if apply_pose is not None:
+            apply_mod.save_pdb_file(apply_pose, mutant_out_path)
+    elif mas.keep_improvements:
+        poses.append([target_individual, mut_pose, apply_pose])
+
     return fitness_score
+
+
+def save_improvements(population, mas: MutateApplyScore):
+    """
+    Takes a population of all improvements and looks up their kept poses to save them via mutate/apply module.
+    Afterwards, the pose list is cleared.
+    :param mas:
+    :param population: Already evaluated population, which contains only improvements.
+    :return: None.
+    """
+    print("test1")
+    print(poses)
+    for individual in population:
+        # for each individual look up the kept poses and save it, if found
+        for result in poses:
+            if individual[0] == result[0]:
+                print(individual[0])
+                print(result[0])
+                # define output-folder for this mutant
+                mutant_out_path = mas.out_path + "/Mutant"
+                for x in individual[0]:
+                    mutant_out_path += "_" + str(x)
+
+                print(mutant_out_path)
+                mutate_mod.save_pdb_file(result[1], mutant_out_path)
+                apply_mod.save_pdb_file(result[2], mutant_out_path)
+                break
+    print("clear")
+    poses.clear()
+    return
 
 # endregion
