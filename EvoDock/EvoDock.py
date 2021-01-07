@@ -4,7 +4,7 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.21_01_03"
+VERSION = "0.21_01_07"
 
 # region Imports
 print("Import core modules...")
@@ -224,12 +224,13 @@ module_name_fold = ""
 use_specific_mutate_out = None
 use_existent_mutate_out_path = None
 skip_application = False
-keep_improvements = True
+keep_improvements = False # TODO access
+tabu_search = True
 
 usable_cpu = multi_p.cpu_count()
 look_up_table_path = ""
 symmetry = None
-brute_force_init_pop = False
+brute_force_init_pop = True
 include_mutants = []
 
 # endregion
@@ -471,7 +472,7 @@ for line in initial_settings_file_content:
             symmetry = [split_text[1], split_text[2]]  # TODO use it
         else:
             print("ERROR in EvoDock: '" + SYMMETRY + " <a> <b>' requires two arguments:")
-            exit("<a>: Chain this is given in res-id\n<b>: Chain id that replaced <a>.")
+            exit("<a>: Chain that is given in res-id\n<b>: Chain id that replaces <a>.")
     elif split_text[0] == BRUTE_FORCE:
         # set if brute force is used to find new solutions in initial population creation.
         param = split_text[1]
@@ -509,6 +510,8 @@ for line in initial_settings_file_content:
                 usable_cpu = int(split_text[1])
                 if usable_cpu < 1:
                     usable_cpu = 1
+                if usable_cpu > multi_p.cpu_count():
+                    usable_cpu = multi_p.cpu_count()
         except IndexError as e:
             exit("Error in line " + str(line_index) + ": Missing argument, the number of usable CPU cores.")
         except ValueError as e:
@@ -553,6 +556,8 @@ if res_id_is_pdb_code:
         if isinstance(entry, int):
             exit("ERROR in EvoDock: Unconsistent res-id format. Use either consecutive numbering order ids or "
                  "PDB format with chain + residue number. Use only one format for all 'res-id' occurrences!")
+elif symmetry is not None:
+    exit("ERROR in EvoDock: Symmetry can only be used, if residues use chain information!")
 if len(amino_acid_paths) != len(allowed_mutations):
     print("Error in initial settings file: Number of residue ids and number of lists with allowed substitutions "
           "are not equal!")
@@ -668,12 +673,30 @@ print(protein_path)
 
 # reformat res-ids if required
 if res_id_is_pdb_code:
-    amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+    # update symmetry information
+    if symmetry is not None:
+        symmetry_list = []
+        for aap in amino_acid_paths:
+            if aap[0] == symmetry[0]:
+                symmetry_list.append([symmetry[1], aap[1]])
+        symmetry = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, symmetry_list)
+        amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+        # check if AAs identical
+        sym_AAs = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, symmetry)
+        path_AAs = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
+        if sym_AAs == path_AAs:
+            print("Symmetry validated, AAs on both sides identical.")
+        else:
+            exit("ERROR in EvoDock: Symmetry was set, but AAs are not identical!" + str(sym_AAs) + str(path_AAs))
+    else:
+        amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
+
+
 # get AAs of reference protein
 reference_protein[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
 # quick reference for several non-changing params
 mds.set_values(reference_protein, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-               use_existent_mutate_out_path, skip_application, keep_improvements)
+               use_existent_mutate_out_path, skip_application, keep_improvements, symmetry)
 
 # endregion
 

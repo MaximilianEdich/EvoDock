@@ -20,7 +20,10 @@ def test_3D():
 
 
 def test_2D():
-    labels = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+    labels_alphabet = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+    labels_hydrophob = ['F', 'I', 'W', 'L', 'V', 'M', 'Y', 'C', 'A', 'T', 'H', 'G', 'S', 'Q', 'R', 'K', 'N', 'E', 'P', 'D']
+
+    labels = labels_hydrophob
     rev_labels = []
     for i in labels[::-1]:
         rev_labels.append(i)
@@ -35,7 +38,7 @@ def test_2D():
     results = []
     min = -1
     max = -1
-    file = open("results_exp_final/exp5_2D/1NJA_2D_new.txt", 'r')
+    file = open("results_exp_final/exp5_2D/2PQL.txt", 'r')
     lines = file.readlines()
     file.close()
     for line in lines[1:]:
@@ -50,15 +53,13 @@ def test_2D():
             max = load_individual[1]
     print(max)
     print(min)
-
-
+    results.append([['C', 'N'], min])
 
     # map results
     for entry in results:
         x_coords = labels.index(entry[0][0])
         y_coords = rev_labels.index(entry[0][1])
         data[y_coords][x_coords] = entry[1]
-
 
     plt.imshow(data, interpolation='nearest')
     plt.xticks(range(20), labels)

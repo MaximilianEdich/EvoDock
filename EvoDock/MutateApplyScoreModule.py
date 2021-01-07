@@ -7,7 +7,7 @@ protein. Next the protein will be used in a task specific application and get a 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.21_01_03"
+VERSION = "0.21_01_07"
 
 # region Imports and fixed vars
 import importlib
@@ -201,10 +201,11 @@ class MutateApplyScore:
         self.use_existent_mutate_out_path = None
         self.skip_application = False
         self.keep_improvements = True
+        self.symmetry_paths = None
         return
 
     def set_values(self, original_individual, out_path, protein_path, amino_acid_paths, use_specific_mutate_out,
-                   use_existent_mutate_out_path, skip_application, keep_improvements):
+                   use_existent_mutate_out_path, skip_application, keep_improvements, symmetry_paths):
         self.original_individual = original_individual
         self.out_path = out_path
         self.protein_path = protein_path
@@ -213,6 +214,7 @@ class MutateApplyScore:
         self.use_existent_mutate_out_path = use_existent_mutate_out_path
         self.skip_application = skip_application
         self.keep_improvements = keep_improvements
+        self.symmetry_paths = symmetry_paths
         return
 
 
@@ -326,6 +328,12 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
         # set PDB saving to true, since these are the input for the next step
         mutate_mod.parameter_handling([mutate_mod.SAVE_PDB, mutate_mod.TRUE])
 
+    # set up amino acid paths
+    aa_paths = mas.amino_acid_paths
+    if mas.symmetry_paths is not None:
+        mutations = mutations + mutations
+        aa_paths = aa_paths + mas.symmetry_paths
+
     # generate mutagenesis output as input for the application and keep results for scoring
     # specific results stores in element 0 the mutagenesis results and in element 1 the application results
     # these results are specific to the module which generate them and may cannot be interpreted by the next pipeline
@@ -335,7 +343,7 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     specific_results = [[], []]
 
     specific_results[0] = generate_application_input(mutations, mutant_out_path, mas.protein_path,
-                                                     mas.amino_acid_paths, fold_instead_mutate,
+                                                     aa_paths, fold_instead_mutate,
                                                      mas.use_existent_mutate_out_path)
     # perform application
     if not mas.skip_application:
@@ -351,10 +359,10 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     # if pose is potentially saved later, keep it
     save_bests = True
     if save_bests:
-        if mut_pose is not None:
-            mutate_mod.save_pdb_file(mut_pose, mutant_out_path)
+        # if mut_pose is not None:
+            # mutate_mod.save_pdb_file(mut_pose, mutant_out_path + "_mut")
         if apply_pose is not None:
-            apply_mod.save_pdb_file(apply_pose, mutant_out_path)
+            apply_mod.save_pdb_file(apply_pose, mutant_out_path + "_apl")
     elif mas.keep_improvements:
         poses.append([target_individual, mut_pose, apply_pose])
 

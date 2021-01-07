@@ -318,5 +318,5 @@ def save_pdb_file(pose, out_path):
     :param out_path: Outpath.
     :return: None.
     """
-    pose.dump_pdb(out_path + str(1) + ".pdb")
+    pose.dump_pdb(out_path + ".pdb")
     return
