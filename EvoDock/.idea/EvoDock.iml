@@ -2,6 +2,30 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/Exp_input" />
+      <excludeFolder url="file://$MODULE_DIR$/PyMOL_sessions" />
+      <excludeFolder url="file://$MODULE_DIR$/input_dock_experiments" />
+      <excludeFolder url="file://$MODULE_DIR$/is_exp" />
+      <excludeFolder url="file://$MODULE_DIR$/is_exp_final" />
+      <excludeFolder url="file://$MODULE_DIR$/is_pre" />
+      <excludeFolder url="file://$MODULE_DIR$/molecules" />
+      <excludeFolder url="file://$MODULE_DIR$/molfile2params" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1ane" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1gwr" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1met" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1nja" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1ogx" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_1rsz" />
+      <excludeFolder url="file://$MODULE_DIR$/mutate_2pql" />
+      <excludeFolder url="file://$MODULE_DIR$/relax_out" />
+      <excludeFolder url="file://$MODULE_DIR$/results_A" />
+      <excludeFolder url="file://$MODULE_DIR$/results_FR" />
+      <excludeFolder url="file://$MODULE_DIR$/results_RTMM" />
+      <excludeFolder url="file://$MODULE_DIR$/results_docking" />
+      <excludeFolder url="file://$MODULE_DIR$/results_exp" />
+      <excludeFolder url="file://$MODULE_DIR$/results_exp_final" />
+      <excludeFolder url="file://$MODULE_DIR$/results_mutagenesis" />
+      <excludeFolder url="file://$MODULE_DIR$/results_test_max_iter" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.7" jdkType="Python SDK" />

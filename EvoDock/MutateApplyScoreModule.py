@@ -7,7 +7,7 @@ protein. Next the protein will be used in a task specific application and get a 
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.21_01_07"
+VERSION = "0.21_01_10"
 
 # region Imports and fixed vars
 import importlib
@@ -265,7 +265,21 @@ def run_application(mutant_out_path, application_input, use_specific_mutate_out,
                     test_file.close()
                     load_input.append(path)
                 except FileNotFoundError:
-                    break
+                    try:
+                        path = use_existent_mutate_out_path + prefix + "_mut" + str(suffix) + ".pdb"
+                        # TODO more efficient way
+                        test_file = open(path, 'r')
+                        test_file.close()
+                        load_input.append(path)
+                    except FileNotFoundError:
+                        try:
+                            path = use_existent_mutate_out_path + prefix + "_apl" + str(suffix) + ".pdb"
+                            # TODO more efficient way
+                            test_file = open(path, 'r')
+                            test_file.close()
+                            load_input.append(path)
+                        except FileNotFoundError:
+                            break
 
             if load_input:
                 # if there is input to load, use it, otherwise use regularly created PDBs from mutagenesis
@@ -357,14 +371,15 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     apply_pose = evaluation_results[2]
 
     # if pose is potentially saved later, keep it
-    save_bests = True
+    save_bests = False
     if save_bests:
         # if mut_pose is not None:
-            # mutate_mod.save_pdb_file(mut_pose, mutant_out_path + "_mut")
+        #    # mutate_mod.save_pdb_file(mut_pose, mutant_out_path + "_mut")
         if apply_pose is not None:
             apply_mod.save_pdb_file(apply_pose, mutant_out_path + "_apl")
     elif mas.keep_improvements:
-        poses.append([target_individual, mut_pose, apply_pose])
+        pass
+        # poses.append([target_individual, mut_pose, apply_pose])
 
     return fitness_score
 

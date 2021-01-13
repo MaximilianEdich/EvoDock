@@ -4,7 +4,7 @@ EvoDock Version 0.1
 created and developed by Maximilian Edich at Universitaet Bielefeld.
 """
 
-VERSION = "0.21_01_07"
+VERSION = "0.21_01_10"
 
 # region Imports
 print("Import core modules...")
@@ -1200,6 +1200,7 @@ def get_individuals_score_relative_to_targetScore(input_individual):
     If the score value was not previously calculated, it will return the default score.
     A difference of 0 is interpreted as best result.
     """
+
     return abs(target_score - input_individual[1])
 
 
@@ -1249,7 +1250,7 @@ def select_fittest_by_number(selectionNumber, number_of_random_picks, input_popu
         keep_population.append(selected_individual)
     # select random individuals not included in keepPopulation yet
     for index in range(int(number_of_random_picks)):
-        selected_individual = input_population.pop(random.choice(range(len(input_population) - 1)))
+        selected_individual = input_population.pop(random.choice(range(len(input_population))) - 1)
         if PRINT_OUT:
             print(selected_individual)
         keep_population.append(selected_individual)
@@ -1467,6 +1468,7 @@ def check_routine():
                         except ValueError:
                             error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
                                 split_command[2]) + ". Must be float or int"
+
                 except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
                         split_command[1]) + ". Must be float or integer"
@@ -1585,11 +1587,16 @@ def perform_routine(input_population):
                     selection_param2 = float(split_command[2])
                 else:
                     selection_param2 = 0
+                if selection_param2 < 0:
+                    selection_param2 = 0
 
                 # check selection method
                 if selection_param1 > 1:
+                    # TODO accept second param 1.0 as float
                     # select by number
-                    selection_param2 = int(selection_param2)
+                    if 0 < selection_param2 < 1:
+                        selection_param2 = float(selection_param2) * int(selection_param1)
+
                     input_population = select_fittest_by_number(int(selection_param1), int(selection_param2),
                                                                 input_population)
                 elif selection_param1 >= 0:

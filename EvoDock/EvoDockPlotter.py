@@ -19,7 +19,7 @@ def test_3D():
     return
 
 
-def test_2D():
+def test_2D(name, title, exp):
     labels_alphabet = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
     labels_hydrophob = ['F', 'I', 'W', 'L', 'V', 'M', 'Y', 'C', 'A', 'T', 'H', 'G', 'S', 'Q', 'R', 'K', 'N', 'E', 'P', 'D']
 
@@ -38,7 +38,7 @@ def test_2D():
     results = []
     min = -1
     max = -1
-    file = open("results_exp_final/exp5_2D/2PQL.txt", 'r')
+    file = open("results_exp_final/" + exp + "/EvoDock_history_" + name + ".txt", 'r')
     lines = file.readlines()
     file.close()
     for line in lines[1:]:
@@ -46,14 +46,17 @@ def test_2D():
         content = line.strip().split(';')
         load_individual[1] = float(content[1]) ** 1
         load_individual[0] = ast.literal_eval(content[0])
+
         results.append(load_individual)
         if min == -1 or load_individual[1] < min:
             min = load_individual[1]
         if max == -1 or load_individual[1] > max:
             max = load_individual[1]
-    print(max)
+
     print(min)
-    results.append([['C', 'N'], min])
+    print(min + (max - min) * 0.5)
+    print(max)
+    print()
 
     # map results
     for entry in results:
@@ -64,7 +67,41 @@ def test_2D():
     plt.imshow(data, interpolation='nearest')
     plt.xticks(range(20), labels)
     plt.yticks(range(20), rev_labels)
+    plt.title(title)
+    plt.xlabel("amino acid 1st position")
+    plt.ylabel("amino acid 2nd position")
     plt.show()
     return
 
-test_2D()
+def skala():
+    data = []
+    labels = []
+    for i in range(5):
+        data.append([i])
+        labels.append(i)
+    plt.imshow(data, interpolation='nearest')
+    plt.xticks(range(5), labels)
+    plt.yticks(range(5), labels)
+    plt.xlabel("amino acid 1st position")
+    plt.ylabel("amino acid 2nd position")
+    plt.show()
+    return
+
+test_2D("1RSZ", "1RSZ", "exp8")
+test_2D("1GWR", "1GWR", "exp8")
+test_2D("1NJE", "1NJE", "exp8")
+test_2D("1BRA_h2o", "1BRA", "exp8")
+test_2D("2PQL_h2o", "2PQL", "exp8")
+test_2D("1OH0", "1OH0", "exp8")
+test_2D("1BVG", "1BVG", "exp8")
+
+#test_2D("1BRA_h2o_struct", "1BRA", "exp5")
+#test_2D("1NJE_struct", "1NJE", "exp5")
+#test_2D("1OH0_struct", "1OH0", "exp5")
+#test_2D("1RSZ_struct", "1RSZ", "exp5")
+
+#test_2D("2PQL_h2o", "2PQL", "exp5")
+#test_2D("2PQL_h2o_struct", "2PQL", "exp5")
+
+#test_2D("1GWR_struct", "1GWR", "exp5")
+#test_2D("1BVG_struct", "1BVG", "exp5")

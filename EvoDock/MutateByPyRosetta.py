@@ -1,5 +1,5 @@
 
-VERSION = "0.21_01_03"
+VERSION = "0.21_01_10"
 
 
 # region Imports and init
@@ -579,7 +579,21 @@ def get_specific_output_from_pdb(mutant_out_path, use_existent_mutate_out_path):
             test_file.close()
             paths.append(path)
         except FileNotFoundError:
-            break
+            try:
+                path = use_existent_mutate_out_path + prefix + "_mut" + str(suffix) + ".pdb"
+                # TODO more efficient way
+                test_file = open(path, 'r')
+                test_file.close()
+                paths.append(path)
+            except FileNotFoundError:
+                try:
+                    path = use_existent_mutate_out_path + prefix + "_apl" + str(suffix) + ".pdb"
+                    # TODO more efficient way
+                    test_file = open(path, 'r')
+                    test_file.close()
+                    paths.append(path)
+                except FileNotFoundError:
+                    break
 
     if not paths:
         # file loading failed
