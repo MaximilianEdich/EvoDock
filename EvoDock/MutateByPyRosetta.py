@@ -117,8 +117,8 @@ def validate_data(protein_path, out_path):
 
 def print_documentation():
     # TODO
-    print("MutateByPyRosetta")
-    print(VERSION)
+    print("MutateByPyRosetta:")
+    print("Version: " + str(VERSION))
     return
 
 

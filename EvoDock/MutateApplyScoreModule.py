@@ -96,13 +96,37 @@ def check_imported_modules():
     try:
         score_mod.is_scoring_module()
     except AttributeError:
-        exit("Error, specified scoring module is not a scoring module!")
+        exit("Error, specified evaluation module is not an evaluation module!")
     if fold_mod is not None:
         try:
             fold_mod.is_folding_module()
         except AttributeError:
             exit("Error, specified folding module is not a folding module!")
     return True
+
+
+def print_documentations():
+    """
+    Print the documentation of each module.
+    """
+    try:
+        mutate_mod.print_documentation()
+    except AttributeError:
+        print("Error, mutagenesis module is missing documentation print!")
+    try:
+        apply_mod.print_documentation()
+    except AttributeError:
+        print("Error, application module is missing documentation print!")
+    try:
+        score_mod.print_documentation()
+    except AttributeError:
+        print("Error, evaluation module is missing documentation print!")
+    if fold_mod is not None:
+        try:
+            fold_mod.print_documentation()
+        except AttributeError:
+            print("Error, folding module is missing documentation print!")
+    return
 
 
 def validate_module_data(protein_path, out_path, skip_application):
@@ -371,10 +395,10 @@ def get_fitness_score(target_individual, mas: MutateApplyScore, fold_instead_mut
     apply_pose = evaluation_results[2]
 
     # if pose is potentially saved later, keep it
-    save_bests = False
+    save_bests = True
     if save_bests:
-        # if mut_pose is not None:
-        #    # mutate_mod.save_pdb_file(mut_pose, mutant_out_path + "_mut")
+        if mut_pose is not None:
+            mutate_mod.save_pdb_file(mut_pose, mutant_out_path + "_mut")
         if apply_pose is not None:
             apply_mod.save_pdb_file(apply_pose, mutant_out_path + "_apl")
     elif mas.keep_improvements:

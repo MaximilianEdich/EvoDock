@@ -53,6 +53,13 @@ def validate_data(protein_path, out_path):
     return
 
 
+def print_documentation():
+    # TODO
+    print("ScoreByPyRosetta:")
+    print("Version: " + str(VERSION))
+    return
+
+
 def parameter_handling(params):
     """
     Handle parameter which are written in the initial settings file and are specified as score module parameter.

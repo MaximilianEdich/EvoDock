@@ -96,7 +96,9 @@ MUTATE_PLUS = "mutate+"
 RECOMBINATION = "recombine"
 RECOMBINATION_CLASSIC = "recombine-classic"
 SELECT = "select"
+NEW_RANDOMS = "new-randoms"
 LOOP = "loop"
+
 
 # others
 TRUE = "TRUE"
@@ -112,6 +114,41 @@ MAX_REC_DEPTH_GET_NEW_RANDOM_MUTANT = 200
 BREAK_LOOP_AFTER_MAX_REC_DEPTH = True
 
 PRINT_OUT = False
+# endregion
+
+# region Specification of initial essential and optional values, set default values
+target_score = None
+terminate_time = None
+terminate_score_range = None
+task = ""
+initial_population_run_mode = ""
+initial_population_create_mode = ""
+start_population_size = 0
+load_population_path = ""
+
+reference_protein = [[], '']
+protein_path = ""
+amino_acid_paths = []
+allowed_mutations = []
+number_of_mutable_aa = 0
+
+mds = MutateApplyScoreModule.MutateApplyScore()
+module_name_mutate = ""
+module_name_apply = ""
+module_name_score = ""
+module_name_fold = ""
+use_specific_mutate_out = True
+use_existent_mutate_out_path = None
+skip_application = False
+keep_improvements = False  # TODO access
+tabu_search = True
+
+usable_cpu = multi_p.cpu_count()
+look_up_table_path = ""
+symmetry = None
+brute_force_init_pop = True
+include_mutants = []
+
 # endregion
 
 # region ArgParse
@@ -135,6 +172,7 @@ args = parser.parse_args()
 # region Documentation print
 # TODO args.documentation print out all commands + commands of specified modules
 if args.documentation:
+    print("EvoDock, Version: " + str(VERSION) + "\n")
     print("Documentation of EvoDock commands:")
     print("Initial settings file flags:")
     print("required flags:")
@@ -174,69 +212,131 @@ if args.documentation:
     print("\tSpecify the path to the used evaluation module.")
     print("\noptional flags:")
     print(TERMINATE_SCORE + " <n>")
-    print("\t")
+    print("\tIf difference between a mutants score and target score is smaller than the given score range, EvoDock "
+          "terminates. Termination happens only after finishing an evolution operator.")
     print(TERMINATE_TIME + " <time>")
-    print("\t")
+    print("\tTerminate after a given time in the format of 'hhh:mm' or 'hh:mm' or 'h:mm', where 'h' "
+          "and 'm' stand for hours and minutes respectively. "
+          "Termination happens only after finishing an evolution operator.")
+    print(LOOK_UP_TABLE + " <file-path>")
+    print("\tSpecify path to a text file with list of individuals, like a history. For new individuals, the listed "
+          "scores are used. New scores are calculated only, if the individual was not listed in the look up table.")
     print(CPU_CORE_NUMBER + " <n>")
     print("\tSpecify the number of cores used for parallel computation. If <n> is "
-          "'" + MAX + "', all available cores are used.")
+          "'" + MAX + "', all available cores are used. However, this may lead to access errors on computer-clusters.")
     print(SEED + " <seed>")
     print("\tSet the seed of the random generator for the run. Affects only random choices of the evolution process, "
           "does not affect pipeline modules.")
-    print(LOOK_UP_TABLE + " <file-path>")
-    print("\tSpecify path to a text file with list of individuals, like a history")
-    print()
-    print("\t")
-    print()
-    print("\t")
-    print()
-    print("\t")
+    print(SYMMETRY + " <a> <b>")
+    print("\tUse this for symmetrical mutations on multiple identical subunits. It mutates the same amino acids on "
+          "all given positions, but exact angles and refinements may differ.\n"
+          "\t<a>: Chain that is given in res-id\n\t<b>: Chain id that replaces <a>.")
+    print(BRUTE_FORCE + " <TRUE/FALSE>")
+    print("\tSet if new random individuals are generated via brute force if the recursion limit was reached once. "
+          "By default, this is FALSE.")
+    print(USE_SPECIFIC_MUTATE_OUT + " <TRUE/FALSE>")
+    print("\tSpecify, if the module specific output of the mutagenesis modules is used directly as "
+          "input for the application, if both are compatible. If FALSE or if both modules are not compatible for this "
+          "feature, PDB files are generated and are used as input. This would require more disk space and "
+          "computation time. "
+          "\nBy default, this is TRUE.")
+    print(USE_EXISTENT_MUTATE_OUT_PATH + " <directory-path>")
+    print("\tSpecify path to a directory with already existing mutagenesis output, which are used as input for the "
+          "application module, if available. The files must be named according to the mutations. An Example: "
+          "'Mutant_D_G1.pdb', where 'D' is the amino acid at first specified position and 'G' at second. Numbers are "
+          "used as suffix for differentation of alternative structures of this mutant. If a file for a certain mutant "
+          "is not existent, the strucutre will be generated via the mutagenesis module.")
+    print(SKIP_APPLICATION + " <TRUE/FALSE")
+    print("\tIf TRUE, the application module will be skipped. The evaluation module must be able to handle this case. "
+          "By default, this is FALSE.")
+    print(INCLUDE_MUTANT + "<mutant>")
+    print("\tAdds the specified mutant to the initial population when generating it at random. The <mutant> parameter "
+          "is a list of single-letter-coded amino acids. The single letters are separated only by a comma and the "
+          "number of AAs must match the number of specified residues with '" + RES_ID +"'.")
+
+    print("\nCommands of imported modules:")
+    # try to load initial settings file
+    initial_settings_file_content = None
+    try:
+        initial_file = open(args.settings, 'r')
+        initial_settings_file_content = initial_file.readlines()
+        initial_file.close()
+    except FileNotFoundError:
+        print("Error: Initial settings file does not exist!")
+        print("Cannot print documentation of imported modules!")
+    except PermissionError:
+        print("Error: Initial settings file can not be opened, permission denied!")
+        print("Cannot print documentation of imported modules!")
+
+    # extract module names
+    if initial_settings_file_content is not None:
+        for line in initial_settings_file_content:
+            line = line.strip()
+            split_text = line.split(' ')
+            if split_text[0] == MODULE_NAME_MUTATE:
+                # specified mutation module
+                try:
+                    module_name_mutate = str(split_text[1])
+                except IndexError:
+                    print("Argument missing for " + split_text[0] + "!")
+            elif split_text[0] == MODULE_NAME_APPLY:
+                # specified mutation module
+                try:
+                    module_name_apply = str(split_text[1])
+                except IndexError:
+                    print("Argument missing for " + split_text[0] + "!")
+            elif split_text[0] == MODULE_NAME_SCORE:
+                # specified mutation module
+                try:
+                    module_name_score = str(split_text[1])
+                except IndexError:
+                    print("Argument missing for " + split_text[0] + "!")
+            elif split_text[0] == MODULE_NAME_FOLD:
+                # specified mutation module
+                try:
+                    module_name_fold = str(split_text[1])
+                except IndexError:
+                    print("Argument missing for " + split_text[0] + "!")
+
+    if module_name_mutate != "" and module_name_apply != "" and module_name_score != "":
+        print("(import at first modules... may contain prints not related to documentation...)")
+        # import modules
+        MutateApplyScoreModule.init(module_name_mutate, module_name_apply, module_name_score, module_name_fold)
+        # check if each module is assigned correctly
+        MutateApplyScoreModule.check_imported_modules()
+
+        print("\n\nDocumentation of modules:")
+        MutateApplyScoreModule.print_documentations()
+    else:
+        print("Cannot import modules and thus not able to print their documentation!")
 
     print("\nRoutine file commands:")
-    print("TODO")
-    # TODO load modules and print doc
+    print(MUTATE + "<n>")
+    print("\tFor each mutant in the current population, up to <n> new mutants are generated. In case of tabu search, "
+          "only never-seen mutants are kepts, therefore only up to <n>.")
+    print(MUTATE_PLUS+ "<n>")
+    print("\tSame as '" + MUTATE + "', but new mutants are evaluated right after generation. Only mutants, which "
+                                   "have improved in comparison to the parent are kept.")
+    print(RECOMBINATION+ "<n>")
+    print("\tFor each mutant in the current population, <n> random mating partners are picked. For all pairs, a "
+          "uniform crossover is performed. In case of tabu search, only never-seen mutants are kept, leading to "
+          "up to <n> new mutants.")
+    print(RECOMBINATION_CLASSIC)
+    print("\tSame as '" + RECOMBINATION +"', but instead of a uniform crossover, a classic 1-point crossover is "
+                                         "performed.")
+    print(SELECT)
+    print("\t")
+    print(NEW_RANDOMS + "<n>")
+    print("\tThis add <n> new and random mutants to the population.")
+    print(LOOP + "<n>")
+    print("\tAll commands up to the next blank line or end of document are repeated <n> times.")
 
     exit()
 
 # endregion
 
-# region Specification of initial essential and optional values, set default values
-target_score = None
-terminate_time = None
-terminate_score_range = None
-task = ""
-initial_population_run_mode = ""
-initial_population_create_mode = ""
-start_population_size = 0
-load_population_path = ""
-
-reference_protein = [[], '']
-protein_path = ""
-amino_acid_paths = []
-allowed_mutations = []
-number_of_mutable_aa = 0
-
-mds = MutateApplyScoreModule.MutateApplyScore()
-module_name_mutate = ""
-module_name_apply = ""
-module_name_score = ""
-module_name_fold = ""
-use_specific_mutate_out = None
-use_existent_mutate_out_path = None
-skip_application = False
-keep_improvements = False # TODO access
-tabu_search = True
-
-usable_cpu = multi_p.cpu_count()
-look_up_table_path = ""
-symmetry = None
-brute_force_init_pop = True
-include_mutants = []
-
-# endregion
-
 # region load files
-# # try to load routine settings file
+# try to load routine settings file
 print("load initial settings file content and routine file content...")
 routine_file_content = ""
 try:
@@ -248,7 +348,7 @@ except FileNotFoundError:
 except PermissionError:
     exit("Error: Routine file can not be opened, permission denied!")
 
-# # try to load initial settings file
+# try to load initial settings file
 initial_settings_file_content = ""
 try:
     initial_file = open(args.settings, 'r')
@@ -354,9 +454,9 @@ for line in initial_settings_file_content:
                     import sys
 
                     if split_text[1] == INFINITE:
-                        target_score = sys.maxsize
+                        target_score = INFINITE
                     else:
-                        target_score = sys.maxsize * -1
+                        target_score = NEGATIVE_INFINITE
                 except ImportError as e:
                     print("ERROR in EvoDock: Cannot set target score to max value!")
                     exit(e)
@@ -569,6 +669,8 @@ if initial_population_create_mode == "":
     initial_population_create_mode = CREATE_VIA_MUTATE
 if target_score is None:
     exit("Error in initial settings file: You have to specify the \"" + TARGET_SCORE + " f\"!")
+if (target_score == INFINITE or target_score == NEGATIVE_INFINITE) and terminate_score_range is not None:
+    exit("Error in initial settings file: Termination by target score range cannot be done with infinite values!")
 if protein_path != "":
     try:
         test_file = open(protein_path)
@@ -691,7 +793,6 @@ if res_id_is_pdb_code:
     else:
         amino_acid_paths = MutateApplyScoreModule.get_reformatted_amino_acids(protein_path, amino_acid_paths)
 
-
 # get AAs of reference protein
 reference_protein[0] = MutateApplyScoreModule.get_ref_protein_amino_acids(protein_path, amino_acid_paths)
 # quick reference for several non-changing params
@@ -709,27 +810,76 @@ print(amino_acid_paths)
 print("\nNumber of cores, detected for multi-processing: " + str(multi_p.cpu_count()))
 print("Use of multi-processing is restricted to: " + str(usable_cpu) + "\n")
 
+
 # region look up table
-look_up_scores = []
-if look_up_table_path != "":
-    print("Load look up table")
-    content = []
+
+
+def check_format_of_population_file(file_content):
+    """
+    Takes in file content that is supposed to be from a population file and checks if this is true.
+    :return: True, if input content is in population format, otherwise False.
+    """
+    # first line is not relevant
+    for line in file_content[1:]:
+        # for each line check content, only two entries allowed
+        line_content = line.strip().split(';')
+        if len(line_content) > 2:
+            return False
+        # second one must be float
+        try:
+            float(line_content[1])
+        except ValueError:
+            return False
+        # first one is a list
+        try:
+            test_list = ast.literal_eval(line_content[0])
+            if len(test_list) == 0:
+                return False
+            # check if each entry is an AA
+            for test_item in test_list:
+                if not mutant_AAs_list.__contains__(test_item):
+                    return False
+
+        except SyntaxError:
+            return False
+        except ValueError:
+            return False
+    return True
+
+
+def get_loaded_population_file(path):
+    """
+
+    :return:
+    """
+    load_population = []
+    load_content = []
     try:
-        look_up_file = open(look_up_table_path, 'r')
-        content = look_up_file.readlines()
-        look_up_file.close()
+        load_file = open(path, 'r')
+        load_content = load_file.readlines()
+        load_file.close()
 
     except FileNotFoundError:
-        exit("File for look up table not found! " + str(look_up_table_path))
+        exit("Error in EvoDock: File for look up table not found! " + str(look_up_table_path))
     except PermissionError:
-        exit("Error: File for look up table can not be opened, permission denied!")
-    # TODO check format
-    for line in content[1:]:
+        exit("Error in EvoDock: File for look up table can not be opened, permission denied!")
+    if not check_format_of_population_file(load_content):
+        print("Error in EvoDock: File for look up table has wrong format (at least in one line)!")
+        exit("Each line, except first, must be not empty and follow this format: '[genes];score', "
+             "where score is a float number and [genes] is a list, like this example: ['V', 'L', 'M']")
+    for line in load_content[1:]:
         load_individual = [[], 0]
         content = line.strip().split(';')
         load_individual[1] = float(content[1])
         load_individual[0] = ast.literal_eval(content[0])
-        look_up_scores.append(load_individual)
+        load_population.append(load_individual)
+
+    return load_population
+
+look_up_scores = []
+if look_up_table_path != "":
+    print("Load look up table")
+    look_up_scores = get_loaded_population_file(look_up_table_path)
 
 
 # endregion
@@ -876,6 +1026,7 @@ def get_random_individual(rec_depth=0):
                         return
                     else:
                         new_individual = [brute_forced_genes, '']
+                        total_history.append(new_individual)
                         return new_individual
 
                 return
@@ -1200,6 +1351,10 @@ def get_individuals_score_relative_to_targetScore(input_individual):
     If the score value was not previously calculated, it will return the default score.
     A difference of 0 is interpreted as best result.
     """
+    if target_score == INFINITE:
+        return -input_individual[1]
+    elif target_score == NEGATIVE_INFINITE:
+        return input_individual[1]
 
     return abs(target_score - input_individual[1])
 
@@ -1445,6 +1600,15 @@ def check_routine():
                 except ValueError:
                     error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
                         split_command[1]) + ". Must be an integer"
+            elif split_command[0] == NEW_RANDOMS:
+                try:
+                    new_randoms = int(split_command[1])
+                    if new_randoms < 0:
+                        error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                            split_command[1]) + ". Must be >= 0"
+                except ValueError:
+                    error = "Error in routine file, illegal value in line " + str(index) + ": " + str(
+                        split_command[1]) + ". Must be an integer"
             elif split_command[0] == SELECT:
                 try:
                     selection_param1 = float(split_command[1])
@@ -1580,6 +1744,19 @@ def perform_routine(input_population):
                 # perform uniform recombination
                 repetition_number = int(split_command[1])
                 input_population = perform_recombination_classic(input_population, repetition_number)
+            elif split_command[0] == NEW_RANDOMS:
+                # introduce new random individuals
+                new_randoms = int(split_command[1])
+                add_population = []
+                for n in range(new_randoms):
+                    # generate new individual
+                    new_individual = get_random_individual()
+                    if new_individual is not None:
+                        # add to population, if new individual is available
+                        add_population.append(new_individual)
+                # calculate scores
+                final_add_population = score_on_multi_core(add_population)
+                input_population.append(final_add_population)
             elif split_command[0] == SELECT:
                 # select number or fraction of mutants
                 selection_param1 = float(split_command[1])
@@ -1706,13 +1883,18 @@ elif initial_population_run_mode == INITIAL_POPULATION_LOAD:
         exit("Error: Initial population file does not exist!")
     except PermissionError:
         exit("Error: Initial population file can not be opened, permission denied!")
-    # translate into population TODO check format
+    # translate into population
+    if not check_format_of_population_file(population_file_content):
+        print("Error in EvoDock: File for loaded population has wrong format (at least in one line)!")
+        exit("Each line, except first, must be not empty and follow this format: '[genes];score', "
+             "where score is a float number and [genes] is a list, like this example: ['V', 'L', 'M']")
     for entry in population_file_content[1:]:
         load_individual = [[], 0]
         content = entry.strip().split(';')
         load_individual[1] = float(content[1])
         load_individual[0] = ast.literal_eval(content[0])
         population.append(load_individual)
+        total_history.append(load_individual)
     # save copy in output folder
     save_population_list(population, "init_pop_via_" + initial_population_create_mode)
 elif initial_population_run_mode == INITIAL_POPULATION_NEW_FULL_RUN:

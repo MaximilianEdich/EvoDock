@@ -18,6 +18,9 @@ EvoDock/mutate_*/*
 EvoDock/commands.txt
 EvoDock/PyMOL*/*
 EvoDock/relax_out/*
+EvoDock/additional*/*
+EvoDock_Code/*
+EvoDock_Code.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

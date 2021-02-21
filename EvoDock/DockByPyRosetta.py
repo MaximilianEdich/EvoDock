@@ -108,6 +108,13 @@ def validate_data(protein_path, out_path):
     return
 
 
+def print_documentation():
+    # TODO
+    print("DockByPyRosetta:")
+    print("Version: " + str(VERSION))
+    return
+
+
 def set_score_function(path_name):
     """
     Set the Rosetta score function of this module.
