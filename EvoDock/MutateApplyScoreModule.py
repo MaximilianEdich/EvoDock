@@ -26,6 +26,7 @@ poses = []
 
 # endregion
 
+
 # region Initialization validation, and preparation of modules
 def init(mutate, apply, score, fold):
     """
@@ -322,10 +323,15 @@ def run_application(mutant_out_path, application_input, use_specific_mutate_out,
 
 def calculate_fitness_score(specific_results):
     """
+    Let the Evaluation module calculate the final fitness score, which in turn is used to determine the mutant's
+    fitness in the context of the current optimization problem.
+    :param specific_results: A list containing exactly two elements. The first one is a list, containing all results
+    from the Mutagenesis module. The second one is a list, containing all results from the Application module.
     """
+    # fetch used score functions from Mutagenesis and Application modules
     sfx_mut = mutate_mod.get_score_function()
     sfx_apply = apply_mod.get_score_function()
-    score = score_mod.calculate_fitness(specific_results, sfx_mut, sfx_apply)
+    score = score_mod.calculate_fitness_score(specific_results, sfx_mut, sfx_apply)
 
     return score
 

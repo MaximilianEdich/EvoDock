@@ -1971,4 +1971,4 @@ if PLOT:
 # endregion
 
 if __name__ == "__main__":
-    print("MAIN")
+    pass

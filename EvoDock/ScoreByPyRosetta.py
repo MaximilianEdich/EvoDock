@@ -1,6 +1,6 @@
 
 
-VERSION = "0.21_01_03"
+VERSION = "0.21_03_05"
 
 
 # region Imports and init
@@ -54,9 +54,17 @@ def validate_data(protein_path, out_path):
 
 
 def print_documentation():
-    # TODO
+    """
+    Print the documentation of this pipeline module.
+    :return: None.
+    """
     print("ScoreByPyRosetta:")
     print("Version: " + str(VERSION))
+    print("Module-specific parameters:")
+    print(WEIGHT_MUTAGENESIS + "<float>")
+    print("\tSet the weight on the energy from results of Mutagenesis Module.")
+    print(WEIGHT_APPLICATION + "<float>")
+    print("\tSet the weight on the energy from results of Application Module.")
     return
 
 
@@ -86,19 +94,27 @@ def parameter_handling(params):
         exit("ERROR in ScoreByPyRosetta: unknown argument(s): " + str(params))
 
 
-def calculate_fitness(specific_results, score_function_mutagenesis, score_function_application):
+def calculate_fitness_score(specific_results, score_function_mutagenesis, score_function_application):
     """
+    Use the results from Mutagenesis and Application modules to calculate the fitness determining final score.
+    :param specific_results: A list containing exactly two elements. The first one is a list, containing all results
+    from the Mutagenesis module. The second one is a list, containing all results from the Application module.
+    :param score_function_mutagenesis: The PyRosetta score function used in Mutagenesis module.
+    :param score_function_application: The PyRosetta score function used in Application module.
     :return:
     """
     if specific_results is None:
         return 0
 
+    if specific_results[0] == []:
+        # mutagenesis results are empty, nothing to evaluate
+        return 0
+
+    # fetch results for easier access
     mutagenesis_results = specific_results[0]
     application_results = specific_results[1]
 
-    if mutagenesis_results == []:
-        return 0
-
+    # initiate StartFrom Mover
     start_from = StartFrom()
     start_from.chain('X')
     vec = xyzVector_double_t(1000, 1000, 1000)
@@ -132,15 +148,7 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
         results = [score, mutagenesis_results[lowest_energy_pose_index], None]
         return results
 
-    # get score functions
-    '''
-    inter_face = InterfaceScoreCalculator()
-    inter_face.score_fxn(score_function_application)
-    svec = vector_std_string()
-    svec.append('A')
-    svec.append('X')
-    inter_face.chains(svec)'''
-
+    # application was not skipped, evaluate all results
     lowest_energy = 0
     lowest_energy_pose_index = 0
     lowest_energy_sub_pose_index = 0
@@ -148,9 +156,6 @@ def calculate_fitness(specific_results, score_function_mutagenesis, score_functi
     for pose_list in application_results:
         inner_pose = 0
         for pose in pose_list:
-            #inter_face.apply(pose)
-            #energy = score_function_application(pose)
-
             energy_complex = score_function_application(pose)
             pose_seperated = Pose()
             pose_seperated.assign(pose)
