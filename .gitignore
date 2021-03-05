@@ -18,7 +18,7 @@ EvoDock/mutate_*/*
 EvoDock/commands.txt
 EvoDock/PyMOL*/*
 EvoDock/relax_out/*
-EvoDock/additional*/*
+EvoDock/additional_experiments/*
 EvoDock_Code/*
 EvoDock_Code.zip
 
