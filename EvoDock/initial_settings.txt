@@ -1,47 +1,29 @@
--init-pop-run-mode create-and-quit 5
--init-pop-create-mode mutate
+-init-pop-run-mode create-and-evolve 400
 -task LIGAND-BINDING
 -targetscore INFINITE
 -prot-path molecules/2PQL.relaxed.pdb
--res-id 3
--res-id 111
--res-id 135
--substitutions
+-res-id A 94
+-res-id A 111
 -substitutions
 -substitutions
 
 -cpu 5
--seed 12345
 
 -mutate MutateByPyRosetta
 -apply DockByPyRosetta
--score ScoreOnPyRosetta
--fold FoldByPyRosetta
-
--use-specific-mutate-out TRUE
-
--skip-application TRUE
+-score ScoreByPyRosetta
 
 -module-param-mutate -rotamer-mover NONE
 -module-param-mutate -rotamer-moves-number 1
 -module-param-mutate -make-poses 1
 -module-param-mutate -extra-relax FAST-RELAX
 -module-param-mutate -save-pdb FALSE
--module-param-mutate -pack-radius 8
 
 -module-param-apply -save-pdb FALSE
 -module-param-apply -score-function input_dock_experiments/dock_sfx.txt
--module-param-apply -xml-protocol-path ligand_dock.xml
--module-param-apply -xml-substitution SUBST_TRANSLATE_ANG 2.0
--module-param-apply -xml-substitution SUBST_TRANSLATE_CYCLES 50
+-module-param-apply -xml-protocol-path ligand_dock_original.xml
+-module-param-apply -make-poses 40
 
--module-param-apply -xml-substitution SUBST_ROTATE_CYCLES 500
--module-param-apply -xml-substitution SUBST_HIGH_RES_DOCK_CYCLES 6
--module-param-apply -xml-substitution SUBST_REPACK_EVERY_NTH 3
-
--module-param-score -weight-mutate 1
--module-param-score -weight-apply 0
-
-# from here: modifiable parameter for docking experiments
--module-param-apply -make-poses 1
+-module-param-score -weight-mutate 0
+-module-param-score -weight-apply 1
 

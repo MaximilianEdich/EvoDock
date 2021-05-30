@@ -1,3 +1,0 @@
-loop 10
-mutate 5
-select 100 25
